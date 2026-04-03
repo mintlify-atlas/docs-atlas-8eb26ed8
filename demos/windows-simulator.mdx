@@ -1,0 +1,123 @@
+---
+title: "Windows and POSIX Simulators"
+description: "Run FreeRTOS on Windows or Linux/macOS without any embedded hardware."
+---
+
+The Windows and POSIX simulator demos let you build and run FreeRTOS on your development machine. They are the fastest way to learn the API, prototype application logic, and run automated tests before targeting real hardware.
+
+<Warning>
+  The simulators are not real-time. FreeRTOS scheduling runs inside host OS threads, so timing is not deterministic. Use simulators for functional testing only, not for timing-critical validation.
+</Warning>
+
+## Windows simulator (MSVC)
+
+**Demo path:** `FreeRTOS/Demo/WIN32-MSVC/`
+
+<Steps>
+  <Step title="Open the solution">
+    Open `WIN32.sln` in Visual Studio 2019 or later.
+  </Step>
+  <Step title="Build and run">
+    Press **F5** (Debug) or **Ctrl+F5** (Run). The demo runs standard FreeRTOS tasks and prints output to the Visual Studio console.
+  </Step>
+  <Step title="Explore the code">
+    `main.c` creates several demonstration tasks: a simple blinky task, a full task notify demo, and queue/semaphore examples. Each is independently enabled via `#define` at the top of `main.c`.
+  </Step>
+</Steps>
+
+## Windows simulator (MinGW)
+
+**Demo path:** `FreeRTOS/Demo/WIN32-MingW/`
+
+```bash
+cd FreeRTOS/Demo/WIN32-MingW
+mingw32-make
+./RTOSDemo.exe
+```
+
+## POSIX simulator (Linux / macOS)
+
+**Demo path:** `FreeRTOS/Demo/Posix_GCC/`
+
+<Steps>
+  <Step title="Build">
+    ```bash
+    cd FreeRTOS/Demo/Posix_GCC
+    make
+    ```
+  </Step>
+  <Step title="Run">
+    ```bash
+    ./build/posix_demo
+    ```
+  </Step>
+</Steps>
+
+The POSIX port maps each FreeRTOS task to a POSIX thread and uses `SIGALRM` for the tick interrupt.
+
+## FreeRTOS+TCP Windows simulator
+
+**Demo path:** `FreeRTOS-Plus/Demo/FreeRTOS_Plus_TCP_Minimal_Windows_Simulator/`
+
+This demo starts a FreeRTOS+TCP stack, obtains an IP address via DHCP, and runs echo server/client tasks. It uses a WinPcap network adapter to access the real network from Windows.
+
+<Steps>
+  <Step title="Install WinPcap">
+    Download and install [WinPcap](https://www.winpcap.org/install/) (or Npcap in WinPcap compatibility mode).
+  </Step>
+  <Step title="Open the solution">
+    Open `FreeRTOS_Plus_TCP_Minimal.sln` in the demo directory with Visual Studio.
+  </Step>
+  <Step title="Select your network adapter">
+    In `FreeRTOSIPConfig.h`, set `ipconfigUSE_NETWORK_INTERFACE_NAME` to match your Ethernet adapter name. The demo prints available adapters at startup if none is configured.
+  </Step>
+  <Step title="Run">
+    Press **F5**. Watch the console for the assigned IP address.
+  </Step>
+</Steps>
+
+## coreMQTT Windows simulator
+
+**Base path:** `FreeRTOS-Plus/Demo/coreMQTT_Windows_Simulator/`
+
+Several sub-demos are available, each with its own Visual Studio solution:
+
+| Sub-demo | Solution file | Description |
+|----------|--------------|-------------|
+| `MQTT_Plain_Text/` | `mqtt_plain_text_demo.sln` | Unencrypted MQTT |
+| `MQTT_Mutual_Auth/` | `mqtt_mutual_auth_demo.sln` | TLS with client cert (AWS IoT) |
+| `MQTT_Basic_TLS/` | `mqtt_basic_tls_demo.sln` | TLS server auth only |
+| `MQTT_Multitask/` | `mqtt_multitask_demo.sln` | Multi-task with coreMQTT-Agent |
+| `MQTT_Keep_Alive/` | `mqtt_keep_alive_demo.sln` | Keep-alive handling |
+
+Configure the broker endpoint and credentials in `demo_config.h` inside each sub-demo directory:
+
+```c
+/* demo_config.h */
+#define democonfigMQTT_BROKER_ENDPOINT    "broker.example.com"
+#define democonfigMQTT_BROKER_PORT        1883
+#define democonfigCLIENT_IDENTIFIER       "my-test-device"
+```
+
+## coreHTTP Windows simulator
+
+**Base path:** `FreeRTOS-Plus/Demo/coreHTTP_Windows_Simulator/`
+
+| Sub-demo | Solution file | Description |
+|----------|--------------|-------------|
+| `HTTP_Plaintext/` | `http_plain_text_demo.sln` | Unencrypted HTTP GET |
+| `HTTP_Mutual_Auth/` | `http_mutual_auth_demo.sln` | HTTPS with client cert |
+| `HTTP_S3_Download/` | `http_s3_download_demo.sln` | Download from S3 |
+| `HTTP_S3_Upload/` | `http_s3_upload_demo.sln` | Upload to S3 |
+
+## POSIX demo with FreeRTOS+TCP
+
+**Demo path:** `FreeRTOS-Plus/Demo/FreeRTOS_Plus_TCP_Echo_Posix/`
+
+```bash
+cd FreeRTOS-Plus/Demo/FreeRTOS_Plus_TCP_Echo_Posix
+make
+sudo ./build/FreeRTOSTCPEchoDemo
+```
+
+Requires root (or `CAP_NET_ADMIN`) for the TAP network interface.

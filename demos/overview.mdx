@@ -1,0 +1,85 @@
+---
+title: "Demo Projects Overview"
+description: "FreeRTOS ships with hundreds of pre-configured demo projects for popular hardware platforms and simulators."
+---
+
+The FreeRTOS distribution includes over 200 demo projects covering a wide range of hardware targets and toolchains. Each demo is a complete, buildable project that demonstrates the kernel and companion libraries running on real hardware or a simulator.
+
+## Demo directories
+
+| Directory | Contents |
+|-----------|----------|
+| `FreeRTOS/Demo/` | Kernel demos for 40+ processor families |
+| `FreeRTOS-Plus/Demo/` | FreeRTOS+ library demos (TCP, CLI, MQTT, HTTP, AWS IoT) |
+
+## Simulator demos (no hardware required)
+
+These demos run on your development machine and are the fastest way to evaluate FreeRTOS:
+
+<CardGroup cols={2}>
+  <Card title="Windows (MSVC)" icon="windows" href="/demos/windows-simulator">
+    `FreeRTOS/Demo/WIN32-MSVC/` — open in Visual Studio and press F5
+  </Card>
+  <Card title="Windows (MinGW)" icon="windows" href="/demos/windows-simulator">
+    `FreeRTOS/Demo/WIN32-MingW/` — build with MinGW GCC on Windows
+  </Card>
+  <Card title="POSIX (Linux/macOS)" icon="terminal" href="/demos/windows-simulator">
+    `FreeRTOS/Demo/Posix_GCC/` — run natively on Linux or macOS
+  </Card>
+  <Card title="QEMU RISC-V" icon="microchip" href="/demos/windows-simulator">
+    `FreeRTOS/Demo/RISC-V_RV32_QEMU_VIRT_GCC/` — emulated RISC-V core
+  </Card>
+</CardGroup>
+
+## Kernel demo categories
+
+### ARM Cortex-M
+Demos for Cortex-M0 through M7, including MPU variants, across IAR, Keil, and GCC toolchains:
+
+- `CORTEX_M4F_STM32F407ZG-SK/` — STM32F407 Discovery (GCC + Keil)
+- `CORTEX_M7_STM32F7_STM32756G-EVAL_IAR_Keil/` — STM32F7 (IAR + Keil)
+- `CORTEX_M0+_Atmel_SAMD20_XPlained/` — Atmel SAMD20
+- `CORTEX_MPU_M33F_NXP_LPC55S69_MCUXpresso/` — NXP LPC55S69 with TrustZone
+
+### ARM Cortex-A/R
+- `CORTEX_A9_Zynq_ZC702/` — Xilinx Zynq-7000
+- `CORTEX_A53_64-bit_UltraScale_MPSoC/` — Xilinx UltraScale+ (64-bit)
+- `CORTEX_R4_RM48_TMS570_CCS5/` — TI Hercules RM48
+
+### RISC-V
+- `RISC-V_RV32_SiFive_HiFive1-RevB_FreedomStudio/` — SiFive HiFive1 Rev B
+- `RISC-V_RV64_PolarFire_SoftConsole/` — Microchip PolarFire SoC
+
+### Microchip / Atmel
+- `PIC32MZ_MPLAB/` — PIC32MZ (MPLAB X)
+- `AVR_ATmega328PB_Xplained_mini_GCC/` — ATmega328PB
+- `RX700_RX72N_EnvisionKit_GCC_e2studio/` — Renesas RX72N
+
+### Other architectures
+MSP430, MicroBlaze, NiosII, TriCore, Tensilica Xtensa, and more — see `FreeRTOS/Demo/` for the full list.
+
+## FreeRTOS+ demos
+
+| Demo | Description |
+|------|-------------|
+| `FreeRTOS_Plus_TCP_Minimal_Windows_Simulator/` | FreeRTOS+TCP on Windows |
+| `FreeRTOS_Plus_TCP_IPv6_Demo/` | IPv6 networking demo |
+| `coreMQTT_Windows_Simulator/` | MQTT publish/subscribe |
+| `coreHTTP_Windows_Simulator/` | HTTP GET/POST requests |
+| `corePKCS11_MQTT_Mutual_Auth_Windows_Simulator/` | MQTT with client cert auth |
+| `coreSNTP_Windows_Simulator/` | SNTP time synchronization |
+| `FreeRTOS_Cellular_Interface_Windows_Simulator/` | Cellular modem interface |
+| `FreeRTOS_Plus_CLI_with_Trace_Windows_Simulator/` | CLI + Tracealyzer |
+
+## AWS IoT demos
+
+```
+FreeRTOS-Plus/Demo/AWS/
+├── Device_Shadow_Windows_Simulator/
+├── Device_Defender_Windows_Simulator/
+├── Jobs_Windows_Simulator/
+├── Ota_Windows_Simulator/
+└── Fleet_Provisioning_Windows_Simulator/
+```
+
+See [AWS IoT Demos](/demos/aws-iot-demos) for setup instructions.

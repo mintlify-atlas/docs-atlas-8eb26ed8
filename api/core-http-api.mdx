@@ -1,0 +1,164 @@
+---
+title: "coreHTTP API"
+description: "API reference for the coreHTTP HTTP/1.1 client library."
+---
+
+## HTTPClient_InitializeRequestHeaders
+
+```c
+HTTPStatus_t HTTPClient_InitializeRequestHeaders(
+    HTTPRequestHeaders_t *              pRequestHeaders,
+    const HTTPClient_InitializeRequestHeaders_t *pRequestInfo
+);
+```
+
+Initializes the request headers buffer and writes the request line and Host header.
+
+**HTTPClient_InitializeRequestHeaders_t fields:**
+
+<ParamField path="pBuffer" type="uint8_t *" required>
+  Caller-allocated buffer to write headers into.
+</ParamField>
+<ParamField path="bufferLen" type="size_t" required>
+  Size of the buffer in bytes.
+</ParamField>
+<ParamField path="pRequestInfo" type="HTTPRequestInfo_t *" required>
+  Request details — method, path, host, and flags.
+</ParamField>
+
+**HTTPRequestInfo_t fields:**
+
+| Field | Description |
+|-------|-------------|
+| `pMethod` | HTTP method string: `HTTP_METHOD_GET`, `HTTP_METHOD_POST`, etc. |
+| `methodLen` | Length of method string |
+| `pPath` | Request path, e.g. `"/api/v1/data"` |
+| `pathLen` | Length of path |
+| `pHost` | Hostname, e.g. `"api.example.com"` |
+| `hostLen` | Length of hostname |
+| `reqFlags` | `HTTP_REQUEST_KEEP_ALIVE_FLAG` or 0 |
+
+---
+
+## HTTPClient_AddHeader
+
+```c
+HTTPStatus_t HTTPClient_AddHeader(
+    HTTPRequestHeaders_t *pRequestHeaders,
+    const char *          pField,
+    size_t                fieldLen,
+    const char *          pValue,
+    size_t                valueLen
+);
+```
+
+Appends a header field-value pair to the request headers buffer. Call after `HTTPClient_InitializeRequestHeaders` and before `HTTPClient_Send`.
+
+```c
+HTTPClient_AddHeader( &xHeaders,
+                      "Content-Type", strlen("Content-Type"),
+                      "application/json", strlen("application/json") );
+```
+
+---
+
+## HTTPClient_AddRangeHeader
+
+```c
+HTTPStatus_t HTTPClient_AddRangeHeader(
+    HTTPRequestHeaders_t *pRequestHeaders,
+    int64_t               rangeStartOrlastNbytes,
+    int64_t               rangeEnd
+);
+```
+
+Adds a `Range: bytes=<start>-<end>` header for partial content requests. Used by the OTA library for chunked downloads.
+
+---
+
+## HTTPClient_Send
+
+```c
+HTTPStatus_t HTTPClient_Send(
+    const TransportInterface_t *pTransport,
+    HTTPRequestHeaders_t *      pRequestHeaders,
+    const uint8_t *             pRequestBodyBuf,
+    size_t                      reqBodyBufLen,
+    HTTPResponse_t *            pResponse,
+    uint32_t                    sendFlags
+);
+```
+
+<ParamField path="pTransport" type="TransportInterface_t *" required>
+  Transport with `send` and `recv` function pointers.
+</ParamField>
+<ParamField path="pRequestHeaders" type="HTTPRequestHeaders_t *" required>
+  Initialized request headers.
+</ParamField>
+<ParamField path="pRequestBodyBuf" type="const uint8_t *">
+  Request body. Pass NULL for requests with no body (GET, DELETE).
+</ParamField>
+<ParamField path="reqBodyBufLen" type="size_t">
+  Length of request body in bytes. Pass 0 if no body.
+</ParamField>
+<ParamField path="pResponse" type="HTTPResponse_t *" required>
+  Caller-allocated response structure with `pBuffer` and `bufferLen` set.
+</ParamField>
+<ParamField path="sendFlags" type="uint32_t">
+  `HTTP_SEND_DISABLE_CONTENT_LENGTH_FLAG` to omit automatic Content-Length header. Pass 0 normally.
+</ParamField>
+
+**HTTPResponse_t output fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `statusCode` | `uint16_t` | HTTP status code (200, 404, etc.) |
+| `pHeaders` | `const uint8_t *` | Pointer to headers in response buffer |
+| `headersLen` | `size_t` | Length of headers |
+| `pBody` | `const uint8_t *` | Pointer to body in response buffer |
+| `bodyLen` | `size_t` | Length of body |
+| `contentLength` | `size_t` | Value of Content-Length header, if present |
+
+---
+
+## HTTPClient_ReadHeader
+
+```c
+HTTPStatus_t HTTPClient_ReadHeader(
+    const HTTPResponse_t *pResponse,
+    const char *          pField,
+    size_t                fieldLen,
+    const char **         ppValueLoc,
+    size_t *              pValueLen
+);
+```
+
+Finds a header by field name in a received response. `*ppValueLoc` points into `pResponse->pBuffer` — do not modify the response buffer after calling this.
+
+---
+
+## HTTP method constants
+
+```c
+#define HTTP_METHOD_GET     "GET"
+#define HTTP_METHOD_PUT     "PUT"
+#define HTTP_METHOD_POST    "POST"
+#define HTTP_METHOD_DELETE  "DELETE"
+#define HTTP_METHOD_HEAD    "HEAD"
+#define HTTP_METHOD_PATCH   "PATCH"
+```
+
+---
+
+## Return codes
+
+| Code | Meaning |
+|------|---------|
+| `HTTPSuccess` | Completed successfully |
+| `HTTPInvalidParameter` | NULL or zero-length argument |
+| `HTTPNetworkError` | Transport error |
+| `HTTPPartialResponse` | Response buffer too small |
+| `HTTPNoResponse` | Connection closed before response |
+| `HTTPInsufficientMemory` | Header buffer too small |
+| `HTTPSecurityAlertResponseHeadersSizeLimitExceeded` | Response headers exceed limit |
+| `HTTPParserInternalError` | Response parser internal failure |

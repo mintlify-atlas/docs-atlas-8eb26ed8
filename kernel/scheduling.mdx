@@ -1,0 +1,114 @@
+---
+title: "Scheduling"
+description: "How FreeRTOS decides which task runs — preemption, time slicing, delays, and critical sections."
+---
+
+FreeRTOS uses a **fixed-priority preemptive scheduler** with optional time slicing. The highest-priority task that is in the Ready state always gets the CPU.
+
+## Scheduling modes
+
+Controlled by `FreeRTOSConfig.h`:
+
+| Setting | Value | Behavior |
+|---------|-------|----------|
+| `configUSE_PREEMPTION` | `1` | Preemptive (default) — higher-priority tasks interrupt lower ones |
+| `configUSE_PREEMPTION` | `0` | Cooperative — tasks yield voluntarily |
+| `configUSE_TIME_SLICING` | `1` | Equal-priority tasks share CPU in round-robin |
+| `configUSE_TIME_SLICING` | `0` | No time slicing — equal-priority tasks run until they block |
+
+## The tick interrupt
+
+The tick interrupt drives the scheduler. It fires at `configTICK_RATE_HZ` (commonly 1000 Hz = 1 ms period).
+
+```c
+/* Convert milliseconds to ticks */
+TickType_t xDelayTicks = pdMS_TO_TICKS( 100 );   /* 100 ms */
+
+/* Get current tick count */
+TickType_t xCurrentTick = xTaskGetTickCount();
+```
+
+## Task delays
+
+### vTaskDelay — relative delay
+
+Blocks for a specified number of ticks from the point of the call:
+
+```c
+void vTaskDelay( TickType_t xTicksToDelay );
+
+/* Example: delay 50 ms */
+vTaskDelay( pdMS_TO_TICKS( 50 ) );
+```
+
+### vTaskDelayUntil — absolute (periodic) delay
+
+Use for precise periodic tasks — accounts for execution time:
+
+```c
+void vTaskDelayUntil( TickType_t *pxPreviousWakeTime,
+                      TickType_t  xTimeIncrement );
+
+/* Example: 10 ms periodic task */
+static void vPeriodicTask( void *pvParameters )
+{
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xPeriod = pdMS_TO_TICKS( 10 );
+
+    for( ;; )
+    {
+        vTaskDelayUntil( &xLastWakeTime, xPeriod );
+        /* Task body executes here, period is exactly 10 ms */
+    }
+}
+```
+
+<Tip>
+  Always use `vTaskDelayUntil` for control loops, sensor sampling, or any task that must run at a fixed frequency. `vTaskDelay` accumulates drift over time.
+</Tip>
+
+## Suspend and resume
+
+```c
+vTaskSuspend( xTaskHandle );    /* Remove from scheduling */
+vTaskResume( xTaskHandle );     /* Put back in Ready state */
+vTaskResumeFromISR( xTaskHandle ); /* Resume from interrupt */
+```
+
+## Critical sections
+
+Critical sections disable interrupts up to `configMAX_SYSCALL_INTERRUPT_PRIORITY`:
+
+```c
+taskENTER_CRITICAL();
+{
+    /* Access shared data — not preempted, no context switch */
+}
+taskEXIT_CRITICAL();
+```
+
+From an ISR:
+
+```c
+UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+{
+    /* Short critical section in ISR */
+}
+taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+```
+
+<Warning>
+  Keep critical sections as short as possible. They block all managed interrupts for their duration.
+</Warning>
+
+## Interrupt priority configuration
+
+On Cortex-M targets, `configMAX_SYSCALL_INTERRUPT_PRIORITY` sets the highest interrupt priority from which FreeRTOS API functions ending in `FromISR` may be called.
+
+- Interrupts with priority **numerically higher** (lower urgency) than this value are managed by FreeRTOS and can use `FromISR` APIs
+- Interrupts with priority **numerically lower** (higher urgency) must never call any FreeRTOS API
+
+```c
+/* In FreeRTOSConfig.h — example for Cortex-M */
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY  ( 5 << (8 - configPRIO_BITS) )
+```

@@ -1,0 +1,165 @@
+---
+title: "Queues and IPC"
+description: "FreeRTOS inter-task communication: queues, semaphores, mutexes, event groups, and direct task notifications."
+---
+
+FreeRTOS provides several mechanisms for tasks to communicate and synchronize without shared global variables.
+
+## Queues
+
+Queues pass data between tasks (and between ISRs and tasks). They are thread-safe FIFO buffers that block senders and receivers as needed.
+
+### Creating a queue
+
+```c
+QueueHandle_t xQueueCreate( UBaseType_t uxQueueLength,
+                             UBaseType_t uxItemSize );
+```
+
+```c
+/* Queue holding 10 uint32_t values */
+QueueHandle_t xQueue = xQueueCreate( 10, sizeof( uint32_t ) );
+configASSERT( xQueue != NULL );
+```
+
+### Sending and receiving
+
+```c
+/* Send — blocks up to xTicksToWait if full */
+BaseType_t xQueueSend( QueueHandle_t xQueue,
+                       const void *  pvItemToQueue,
+                       TickType_t    xTicksToWait );
+
+/* Receive — blocks up to xTicksToWait if empty */
+BaseType_t xQueueReceive( QueueHandle_t xQueue,
+                          void *        pvBuffer,
+                          TickType_t    xTicksToWait );
+```
+
+```c
+/* Producer */
+uint32_t ulValue = 42;
+xQueueSend( xQueue, &ulValue, portMAX_DELAY );
+
+/* Consumer */
+uint32_t ulReceived;
+if( xQueueReceive( xQueue, &ulReceived, pdMS_TO_TICKS( 100 ) ) == pdPASS )
+{
+    /* use ulReceived */
+}
+```
+
+### From ISRs
+
+```c
+BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+xQueueSendFromISR( xQueue, &ulValue, &xHigherPriorityTaskWoken );
+portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+```
+
+## Semaphores
+
+### Binary semaphore — signaling between tasks/ISRs
+
+```c
+SemaphoreHandle_t xSem = xSemaphoreCreateBinary();
+
+/* Give (signal) */
+xSemaphoreGive( xSem );
+
+/* Take (wait) — blocks until given */
+xSemaphoreTake( xSem, portMAX_DELAY );
+
+/* From ISR */
+BaseType_t xWoken = pdFALSE;
+xSemaphoreGiveFromISR( xSem, &xWoken );
+portYIELD_FROM_ISR( xWoken );
+```
+
+### Counting semaphore
+
+```c
+/* Max count 10, initial count 0 */
+SemaphoreHandle_t xCounting = xSemaphoreCreateCounting( 10, 0 );
+```
+
+## Mutexes
+
+Mutexes provide mutual exclusion with built-in **priority inheritance** to prevent priority inversion.
+
+```c
+SemaphoreHandle_t xMutex = xSemaphoreCreateMutex();
+
+void vTaskAccessingSharedResource( void *pvParameters )
+{
+    for( ;; )
+    {
+        if( xSemaphoreTake( xMutex, portMAX_DELAY ) == pdTRUE )
+        {
+            /* Protected access */
+            xSemaphoreGive( xMutex );
+        }
+    }
+}
+```
+
+<Warning>
+  Never call `xSemaphoreGive` on a mutex from an ISR. Mutexes are for task-to-task mutual exclusion only.
+</Warning>
+
+### Recursive mutex
+
+For code that takes the same mutex multiple times (re-entrant functions):
+
+```c
+SemaphoreHandle_t xRecMutex = xSemaphoreCreateRecursiveMutex();
+
+xSemaphoreTakeRecursive( xRecMutex, portMAX_DELAY );
+/* ... nested take ... */
+xSemaphoreTakeRecursive( xRecMutex, portMAX_DELAY );
+xSemaphoreGiveRecursive( xRecMutex );
+xSemaphoreGiveRecursive( xRecMutex );
+```
+
+## Event groups
+
+Event groups let tasks wait for combinations of bit-flags:
+
+```c
+EventGroupHandle_t xEventGroup = xEventGroupCreate();
+
+/* Set bits from a task or ISR */
+xEventGroupSetBits( xEventGroup, 0x01 | 0x04 );
+
+/* Wait for ANY of bits 0 or 2 to be set */
+EventBits_t uxBits = xEventGroupWaitBits(
+    xEventGroup,
+    0x01 | 0x04,   /* Bits to wait for */
+    pdTRUE,        /* Clear on exit */
+    pdFALSE,       /* Wait for ANY (pdTRUE = wait for ALL) */
+    portMAX_DELAY
+);
+```
+
+## Direct task notifications
+
+Lighter than semaphores — each task has a built-in 32-bit notification value:
+
+```c
+/* Notify a task (like giving a semaphore) */
+xTaskNotifyGive( xTaskHandle );
+
+/* Wait for notification (like taking a semaphore) */
+ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
+
+/* Send a value */
+xTaskNotify( xTaskHandle, ulValue, eSetValueWithOverwrite );
+
+/* Receive a value */
+uint32_t ulValue;
+xTaskNotifyWait( 0, ULONG_MAX, &ulValue, portMAX_DELAY );
+```
+
+<Tip>
+  Use direct task notifications instead of binary semaphores when only one task waits for the notification — they use less RAM and are faster.
+</Tip>

@@ -1,0 +1,151 @@
+---
+title: "Semaphores and Mutexes API"
+description: "API reference for FreeRTOS binary semaphores, counting semaphores, mutexes, and recursive mutexes."
+---
+
+Semaphores and mutexes in FreeRTOS are built on top of the queue mechanism. They share the `SemaphoreHandle_t` type and the `xSemaphoreTake` / `xSemaphoreGive` API.
+
+## Binary semaphore
+
+A binary semaphore is either "given" (available) or "taken" (not available). It is the simplest synchronization primitive — ideal for signaling between a task and an ISR.
+
+```c
+SemaphoreHandle_t xSemaphoreCreateBinary( void );
+```
+
+Returns a `SemaphoreHandle_t`, or NULL on allocation failure. A newly created binary semaphore is in the "taken" state — give it before the first task tries to take it.
+
+```c
+SemaphoreHandle_t xSem = xSemaphoreCreateBinary();
+
+/* In ISR: signal the task */
+BaseType_t xWoken = pdFALSE;
+xSemaphoreGiveFromISR( xSem, &xWoken );
+portYIELD_FROM_ISR( xWoken );
+
+/* In task: wait for signal */
+xSemaphoreTake( xSem, portMAX_DELAY );
+```
+
+---
+
+## Counting semaphore
+
+```c
+SemaphoreHandle_t xSemaphoreCreateCounting(
+    UBaseType_t uxMaxCount,
+    UBaseType_t uxInitialCount
+);
+```
+
+<ParamField path="uxMaxCount" type="UBaseType_t" required>
+  Maximum value the semaphore count can reach.
+</ParamField>
+<ParamField path="uxInitialCount" type="UBaseType_t" required>
+  Initial count value. Set to 0 for "all resources in use" or `uxMaxCount` for "all available".
+</ParamField>
+
+---
+
+## xSemaphoreTake
+
+```c
+BaseType_t xSemaphoreTake(
+    SemaphoreHandle_t xSemaphore,
+    TickType_t        xTicksToWait
+);
+```
+
+Decrements the semaphore count. Blocks for up to `xTicksToWait` ticks if count is zero. Returns `pdTRUE` on success, `pdFALSE` on timeout.
+
+<Warning>
+  Never call `xSemaphoreTake` on a mutex from an ISR. Use `xSemaphoreTakeFromISR` only for binary/counting semaphores.
+</Warning>
+
+---
+
+## xSemaphoreGive
+
+```c
+BaseType_t xSemaphoreGive( SemaphoreHandle_t xSemaphore );
+```
+
+Increments the semaphore count. Returns `pdTRUE` on success, `pdFALSE` if the semaphore is already at its maximum count (counting) or already given (binary).
+
+---
+
+## ISR variants
+
+```c
+BaseType_t xSemaphoreGiveFromISR(
+    SemaphoreHandle_t xSemaphore,
+    BaseType_t *      pxHigherPriorityTaskWoken
+);
+
+BaseType_t xSemaphoreTakeFromISR(
+    SemaphoreHandle_t xSemaphore,
+    BaseType_t *      pxHigherPriorityTaskWoken
+);
+```
+
+---
+
+## Mutex
+
+A mutex is like a binary semaphore but with **priority inheritance**: if a high-priority task blocks waiting for a mutex held by a low-priority task, the low-priority task temporarily inherits the higher priority to prevent priority inversion.
+
+```c
+SemaphoreHandle_t xSemaphoreCreateMutex( void );
+```
+
+```c
+SemaphoreHandle_t xMutex = xSemaphoreCreateMutex();
+
+/* Acquire */
+if( xSemaphoreTake( xMutex, pdMS_TO_TICKS( 100 ) ) == pdTRUE )
+{
+    /* Protected section */
+    xSemaphoreGive( xMutex );
+}
+```
+
+<Warning>
+  Mutexes must not be used from ISRs. They must always be given back by the same task that took them.
+</Warning>
+
+---
+
+## Recursive mutex
+
+A recursive mutex can be taken multiple times by the same task without deadlocking. Each take must be paired with a give.
+
+```c
+SemaphoreHandle_t xSemaphoreCreateRecursiveMutex( void );
+
+BaseType_t xSemaphoreTakeRecursive( SemaphoreHandle_t xMutex, TickType_t xTicksToWait );
+BaseType_t xSemaphoreGiveRecursive( SemaphoreHandle_t xMutex );
+```
+
+Requires `configUSE_RECURSIVE_MUTEXES 1`.
+
+---
+
+## Static variants
+
+```c
+SemaphoreHandle_t xSemaphoreCreateBinaryStatic( StaticSemaphore_t *pxSemaphoreBuffer );
+SemaphoreHandle_t xSemaphoreCreateCountingStatic(
+    UBaseType_t uxMaxCount, UBaseType_t uxInitialCount,
+    StaticSemaphore_t *pxSemaphoreBuffer );
+SemaphoreHandle_t xSemaphoreCreateMutexStatic( StaticSemaphore_t *pxMutexBuffer );
+SemaphoreHandle_t xSemaphoreCreateRecursiveMutexStatic( StaticSemaphore_t *pxMutexBuffer );
+```
+
+---
+
+## Semaphore count and delete
+
+```c
+UBaseType_t uxSemaphoreGetCount( SemaphoreHandle_t xSemaphore );
+void        vSemaphoreDelete( SemaphoreHandle_t xSemaphore );
+```

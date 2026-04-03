@@ -1,0 +1,117 @@
+{
+  "projectType": "framework",
+  "projectName": "FreeRTOS",
+  "projectDescription": "A real-time operating system (RTOS) kernel for embedded systems, offering task scheduling, inter-task communication, and a rich ecosystem of complementary libraries for networking, security, and cloud connectivity.",
+  "theme": "aspen",
+  "primaryColor": "#67c253",
+  "lightColor": "#f2f9ed",
+  "darkColor": "#0e100f",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "cloning-the-repository"
+            ]
+          },
+          {
+            "group": "Kernel Concepts",
+            "pages": [
+              "kernel/tasks",
+              "kernel/scheduling",
+              "kernel/queues-and-ipc",
+              "kernel/memory-management"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/freertos-config",
+              "configuration/compiler-and-port"
+            ]
+          },
+          {
+            "group": "FreeRTOS+ Libraries",
+            "pages": [
+              "libraries/freertos-plus-tcp",
+              "libraries/freertos-plus-cli",
+              "libraries/core-mqtt",
+              "libraries/core-http",
+              "libraries/core-pkcs11",
+              "libraries/aws-iot-libraries"
+            ]
+          },
+          {
+            "group": "Demo Projects",
+            "pages": [
+              "demos/overview",
+              "demos/windows-simulator",
+              "demos/aws-iot-demos"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Kernel API",
+            "pages": [
+              "api/task-management",
+              "api/queues",
+              "api/semaphores-and-mutexes",
+              "api/timers",
+              "api/event-groups",
+              "api/stream-and-message-buffers"
+            ]
+          },
+          {
+            "group": "FreeRTOS+ APIs",
+            "pages": [
+              "api/freertos-plus-tcp",
+              "api/freertos-plus-cli",
+              "api/core-mqtt-api",
+              "api/core-http-api"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Preemptive, cooperative, and hybrid scheduling modes",
+    "Multi-platform support: ARM, RISC-V, AVR, PIC, x86, MIPS, and more",
+    "Memory protection unit (MPU) support for Cortex-M and ARM cores",
+    "FreeRTOS+TCP: full IPv4/IPv6 TCP/IP networking stack",
+    "coreMQTT: lightweight MQTT 3.1.1 client for AWS IoT connectivity",
+    "coreHTTP: lightweight HTTP/1.1 client library",
+    "corePKCS11: PKCS#11 interface for cryptographic operations",
+    "AWS IoT Device Shadow, Defender, Jobs, and OTA update libraries",
+    "FreeRTOS+CLI: extensible command-line interface for embedded systems",
+    "FreeRTOS+Trace: runtime tracing and visualization support",
+    "Cellular Interface library for LTE-M/NB-IoT connectivity",
+    "Static and dynamic memory allocation support",
+    "MIT licensed with long-term support (LTS) releases"
+  ],
+  "publicApiSurface": [
+    "xTaskCreate() / xTaskCreateStatic()",
+    "vTaskDelete()",
+    "vTaskDelay() / vTaskDelayUntil()",
+    "xQueueCreate() / xQueueSend() / xQueueReceive()",
+    "xSemaphoreCreateBinary() / xSemaphoreGive() / xSemaphoreTake()",
+    "xSemaphoreCreateMutex() / xSemaphoreCreateRecursiveMutex()",
+    "xTimerCreate() / xTimerStart() / xTimerStop()",
+    "xEventGroupCreate() / xEventGroupSetBits() / xEventGroupWaitBits()",
+    "xStreamBufferCreate() / xStreamBufferSend() / xStreamBufferReceive()",
+    "xMessageBufferCreate() / xMessageBufferSend() / xMessageBufferReceive()",
+    "FreeRTOS_CLIRegisterCommand() / FreeRTOS_CLIProcessCommand()",
+    "FreeRTOS_socket() / FreeRTOS_connect() / FreeRTOS_send() / FreeRTOS_recv()",
+    "MQTT_Init() / MQTT_Connect() / MQTT_Publish() / MQTT_Subscribe()",
+    "HTTPClient_Send() / HTTPClient_ReadHeader()"
+  ]
+}

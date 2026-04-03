@@ -1,0 +1,105 @@
+---
+title: "corePKCS11"
+description: "PKCS#11 cryptographic interface for FreeRTOS — secure key storage and TLS operations."
+---
+
+corePKCS11 implements the PKCS#11 v2.40 standard for cryptographic operations on embedded devices. It abstracts key storage so your TLS stack and application code work with keys without directly accessing raw key material.
+
+## Source location
+
+```
+FreeRTOS-Plus/Source/corePKCS11/
+```
+
+## Why PKCS#11?
+
+The same application code works whether keys are stored in:
+- **Flash/NVS** — the included software-only implementation
+- **Secure element** — replace the PAL layer with your hardware driver
+- **TrustZone / TPM** — port the interface to your secure enclave
+
+## Initializing a session
+
+```c
+#include "core_pkcs11.h"
+
+CK_RV prvOpenPKCS11Session( CK_SESSION_HANDLE *pxSession )
+{
+    CK_FUNCTION_LIST_PTR pxFns;
+    CK_RV xRv;
+
+    xRv = C_GetFunctionList( &pxFns );
+    if( xRv != CKR_OK ) return xRv;
+
+    xRv = pxFns->C_Initialize( NULL );
+    if( xRv != CKR_OK ) return xRv;
+
+    CK_SLOT_ID xSlot;
+    CK_ULONG ulCount = 1;
+    xRv = pxFns->C_GetSlotList( CK_TRUE, &xSlot, &ulCount );
+    if( xRv != CKR_OK ) return xRv;
+
+    return pxFns->C_OpenSession( xSlot,
+                                  CKF_SERIAL_SESSION | CKF_RW_SESSION,
+                                  NULL, NULL, pxSession );
+}
+```
+
+## Using with mbedTLS for TLS
+
+The distribution provides `transport_mbedtls_pkcs11.c` which routes mbedTLS private key operations through PKCS#11. The PKCS#11 variant of `NetworkCredentials_t` uses **label strings** (not raw key bytes) to reference stored keys:
+
+```c
+#include "transport_mbedtls_pkcs11.h"
+
+static NetworkContext_t xNetworkContext;
+static TlsTransportParams_t xTlsParams;
+
+NetworkCredentials_t xCreds = {
+    .pRootCa          = (const unsigned char *) pcRootCA,
+    .rootCaSize       = sizeof( pcRootCA ),
+    /* Certificate and key accessed by PKCS#11 label — no raw bytes */
+    .pClientCertLabel = pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS,
+    .pPrivateKeyLabel = pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS,
+};
+
+xNetworkContext.pParams = &xTlsParams;
+/* Timeouts in milliseconds */
+TLS_FreeRTOS_Connect( &xNetworkContext, pcEndpoint, 8883,
+                      &xCreds, 5000, 5000 );
+```
+
+## Key configuration
+
+```c
+/* In core_pkcs11_config.h */
+#define pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS   "Device Priv TLS Key"
+#define pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS   "Device Cert"
+#define pkcs11configMAX_NUM_OBJECTS                     6
+```
+
+## Provisioning helper API
+
+corePKCS11 ships a set of helper functions for common provisioning tasks:
+
+```c
+#include "core_pkcs11_pal.h"
+
+/* Write a DER-encoded certificate to PKCS#11 storage */
+CK_OBJECT_HANDLE xCertHandle;
+xProvisionCertificate( xSession,
+                        pcDeviceCert, sizeof( pcDeviceCert ),
+                        pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS,
+                        &xCertHandle );
+
+/* Import an existing private key */
+CK_OBJECT_HANDLE xKeyHandle;
+xProvisionPrivateKey( xSession,
+                       pcPrivateKeyPEM, strlen( pcPrivateKeyPEM ),
+                       pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS,
+                       &xKeyHandle );
+```
+
+<Note>
+  The default software-only PKCS#11 implementation stores keys in device flash. For production, replace the PAL implementation (`core_pkcs11_pal.c`) with one that uses your hardware secure storage.
+</Note>

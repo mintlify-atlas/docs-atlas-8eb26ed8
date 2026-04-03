@@ -1,0 +1,156 @@
+---
+title: "Memory Management"
+description: "FreeRTOS heap implementations, static allocation, stack sizing, and memory monitoring."
+---
+
+FreeRTOS provides five heap implementations. Choose based on your constraints around determinism, fragmentation, and whether you need dynamic deallocation.
+
+## Heap implementations
+
+| Implementation | Free supported | Coalescence | Use case |
+|---------------|---------------|-------------|----------|
+| **heap_1** | No | N/A | Simplest; fully deterministic; safety-critical systems |
+| **heap_2** | Yes | No | Legacy; may fragment over time |
+| **heap_3** | Yes | N/A | Wraps standard `malloc`/`free`; non-deterministic |
+| **heap_4** | Yes | Yes | Most common; best-fit with adjacent block merging |
+| **heap_5** | Yes | Yes | Like heap_4; supports non-contiguous memory regions |
+
+Include exactly one heap file from `FreeRTOS/Source/portable/MemMang/` in your build:
+
+```
+FreeRTOS/Source/portable/MemMang/heap_4.c
+```
+
+## Heap size configuration
+
+```c
+/* In FreeRTOSConfig.h */
+#define configTOTAL_HEAP_SIZE    ( ( size_t ) ( 75 * 1024 ) )
+```
+
+For heap_5, define regions in your startup code:
+
+```c
+#include "FreeRTOS.h"
+#include "task.h"
+
+/* Two non-contiguous RAM regions */
+static uint8_t ucHeap1[ 30 * 1024 ];
+static uint8_t ucHeap2[ 20 * 1024 ];
+
+void vSetupHeap( void )
+{
+    const HeapRegion_t xHeapRegions[] =
+    {
+        { ucHeap1, sizeof( ucHeap1 ) },
+        { ucHeap2, sizeof( ucHeap2 ) },
+        { NULL, 0 }   /* Terminator */
+    };
+    vPortDefineHeapRegions( xHeapRegions );
+}
+```
+
+## Allocation API
+
+```c
+/* Allocate from FreeRTOS heap */
+void *pvPortMalloc( size_t xSize );
+
+/* Return to FreeRTOS heap (no-op for heap_1) */
+void vPortFree( void *pv );
+```
+
+## Monitoring heap usage
+
+```c
+/* Bytes currently free */
+size_t xPortGetFreeHeapSize( void );
+
+/* Lowest free bytes since boot — useful for sizing */
+size_t xPortGetMinimumEverFreeHeapSize( void );
+```
+
+<Tip>
+  Call `xPortGetMinimumEverFreeHeapSize()` after a period of typical operation to find the minimum headroom. Keep at least 20% free for safety.
+</Tip>
+
+## Static allocation
+
+You can create all FreeRTOS objects with no heap at all using static variants:
+
+```c
+/* In FreeRTOSConfig.h */
+#define configSUPPORT_STATIC_ALLOCATION   1
+#define configSUPPORT_DYNAMIC_ALLOCATION  0  /* Optional: ban dynamic */
+```
+
+```c
+/* Static task */
+static StaticTask_t xTaskBuffer;
+static StackType_t  xStack[ 256 ];
+
+TaskHandle_t xHandle = xTaskCreateStatic(
+    vMyTask, "Static", 256, NULL, 1,
+    xStack, &xTaskBuffer
+);
+
+/* Static queue */
+static StaticQueue_t xQueueBuffer;
+static uint8_t       ucQueueStorage[ 10 * sizeof( uint32_t ) ];
+
+QueueHandle_t xQueue = xQueueCreateStatic(
+    10, sizeof( uint32_t ),
+    ucQueueStorage, &xQueueBuffer
+);
+```
+
+When static allocation is enabled, you must also provide two application callbacks:
+
+```c
+void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer,
+                                    StackType_t  **ppxIdleTaskStackBuffer,
+                                    uint32_t      *pulIdleTaskStackSize )
+{
+    static StaticTask_t xIdleTCB;
+    static StackType_t  xIdleStack[ configMINIMAL_STACK_SIZE ];
+    *ppxIdleTaskTCBBuffer   = &xIdleTCB;
+    *ppxIdleTaskStackBuffer = xIdleStack;
+    *pulIdleTaskStackSize   = configMINIMAL_STACK_SIZE;
+}
+
+void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer,
+                                     StackType_t  **ppxTimerTaskStackBuffer,
+                                     uint32_t      *pulTimerTaskStackSize )
+{
+    static StaticTask_t xTimerTCB;
+    static StackType_t  xTimerStack[ configTIMER_TASK_STACK_DEPTH ];
+    *ppxTimerTaskTCBBuffer   = &xTimerTCB;
+    *ppxTimerTaskStackBuffer = xTimerStack;
+    *pulTimerTaskStackSize   = configTIMER_TASK_STACK_DEPTH;
+}
+```
+
+## Stack overflow detection
+
+```c
+/* In FreeRTOSConfig.h */
+#define configCHECK_FOR_STACK_OVERFLOW   2   /* Method 2: paint + check */
+
+/* Application hook — called on overflow */
+void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
+{
+    /* Log error, reset system */
+    configASSERT( 0 );
+}
+```
+
+Check remaining stack headroom at runtime:
+
+```c
+/* Returns words remaining at peak usage */
+UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark( xTaskHandle );
+```
+
+<Warning>
+  If `uxTaskGetStackHighWaterMark()` returns a very small number (near 0), increase the task's stack size — stack overflow leads to undefined behavior.
+</Warning>

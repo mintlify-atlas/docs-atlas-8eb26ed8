@@ -1,0 +1,143 @@
+---
+title: "Event Groups API"
+description: "API reference for FreeRTOS event groups — flag-based synchronization across multiple tasks."
+---
+
+Event groups allow tasks to wait for one or more bit-flags to be set. Multiple tasks can block on the same event group, and bits can be set from tasks or ISRs.
+
+Requires `configUSE_EVENT_GROUPS 1` (enabled by default when `event_groups.c` is included in the build).
+
+## xEventGroupCreate
+
+```c
+EventGroupHandle_t xEventGroupCreate( void );
+EventGroupHandle_t xEventGroupCreateStatic( StaticEventGroup_t *pxEventGroupBuffer );
+```
+
+Returns an `EventGroupHandle_t`, or NULL on allocation failure.
+
+---
+
+## xEventGroupSetBits
+
+```c
+EventBits_t xEventGroupSetBits(
+    EventGroupHandle_t xEventGroup,
+    EventBits_t        uxBitsToSet
+);
+```
+
+Sets (ORs) the specified bits. Returns the event group value **after** the bits are set (but tasks may have already cleared bits and unblocked by the time the function returns).
+
+---
+
+## xEventGroupClearBits
+
+```c
+EventBits_t xEventGroupClearBits(
+    EventGroupHandle_t xEventGroup,
+    EventBits_t        uxBitsToClear
+);
+```
+
+Returns the event group value **before** clearing.
+
+---
+
+## xEventGroupWaitBits
+
+```c
+EventBits_t xEventGroupWaitBits(
+    EventGroupHandle_t xEventGroup,
+    EventBits_t        uxBitsToWaitFor,
+    BaseType_t         xClearOnExit,
+    BaseType_t         xWaitForAllBits,
+    TickType_t         xTicksToWait
+);
+```
+
+<ParamField path="uxBitsToWaitFor" type="EventBits_t" required>
+  Bitmask of bits to wait for.
+</ParamField>
+<ParamField path="xClearOnExit" type="BaseType_t" required>
+  `pdTRUE`: clear the waited-for bits when the function returns due to bits being set.
+</ParamField>
+<ParamField path="xWaitForAllBits" type="BaseType_t" required>
+  `pdTRUE`: wait until **all** specified bits are set. `pdFALSE`: unblock when **any** bit is set.
+</ParamField>
+<ParamField path="xTicksToWait" type="TickType_t" required>
+  Maximum ticks to block. Use `portMAX_DELAY` to wait indefinitely.
+</ParamField>
+
+Returns the event group value at the time the call returned — check which bits are set to determine why the function unblocked.
+
+```c
+EventGroupHandle_t xEventGroup = xEventGroupCreate();
+
+/* Task A: wait for bit 0 OR bit 2 */
+EventBits_t uxBits = xEventGroupWaitBits(
+    xEventGroup,
+    0x01 | 0x04,   /* wait for bits 0 and 2 */
+    pdTRUE,        /* clear on exit */
+    pdFALSE,       /* wait for ANY */
+    portMAX_DELAY
+);
+
+if( uxBits & 0x01 ) { /* bit 0 was set */ }
+if( uxBits & 0x04 ) { /* bit 2 was set */ }
+
+/* Task B: signal bit 0 */
+xEventGroupSetBits( xEventGroup, 0x01 );
+```
+
+---
+
+## xEventGroupGetBits
+
+```c
+EventBits_t xEventGroupGetBits( EventGroupHandle_t xEventGroup );
+EventBits_t xEventGroupGetBitsFromISR( EventGroupHandle_t xEventGroup );
+```
+
+Returns the current event group value without blocking.
+
+---
+
+## ISR variant for setting bits
+
+```c
+BaseType_t xEventGroupSetBitsFromISR(
+    EventGroupHandle_t xEventGroup,
+    EventBits_t        uxBitsToSet,
+    BaseType_t *       pxHigherPriorityTaskWoken
+);
+```
+
+This posts a command to the timer daemon task rather than setting bits directly. Requires `configUSE_TIMERS 1` and `INCLUDE_xTimerPendFunctionCall 1`.
+
+---
+
+## xEventGroupSync
+
+Allows multiple tasks to reach a synchronization point before any continues ("rendezvous"):
+
+```c
+EventBits_t xEventGroupSync(
+    EventGroupHandle_t xEventGroup,
+    EventBits_t        uxBitsToSet,
+    EventBits_t        uxBitsToWaitFor,
+    TickType_t         xTicksToWait
+);
+```
+
+Each task sets its own bit and then waits for all other tasks' bits to be set.
+
+---
+
+## vEventGroupDelete
+
+```c
+void vEventGroupDelete( EventGroupHandle_t xEventGroup );
+```
+
+Deletes the event group. Any tasks blocked on the group are unblocked and receive a value of 0.

@@ -1,0 +1,166 @@
+---
+title: "Stream and Message Buffers API"
+description: "API reference for FreeRTOS stream buffers and message buffers — byte-stream and framed IPC."
+---
+
+Stream buffers and message buffers provide efficient byte-stream and framed message passing between a single writer and a single reader. They are optimized for ISR-to-task data transfer.
+
+<Warning>
+  Stream and message buffers support only **one reader and one writer**. For multiple writers/readers, protect access with a mutex.
+</Warning>
+
+## Stream buffers
+
+Stream buffers transfer raw bytes. The reader can receive any number of bytes up to the buffer size.
+
+### xStreamBufferCreate
+
+```c
+StreamBufferHandle_t xStreamBufferCreate(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes
+);
+```
+
+<ParamField path="xBufferSizeBytes" type="size_t" required>
+  Total byte capacity of the stream buffer.
+</ParamField>
+<ParamField path="xTriggerLevelBytes" type="size_t" required>
+  Minimum bytes that must be in the buffer before a blocked reader is unblocked. Set to 1 to unblock as soon as any data is available.
+</ParamField>
+
+```c
+StreamBufferHandle_t xStream = xStreamBufferCreate( 256, 1 );
+configASSERT( xStream != NULL );
+```
+
+---
+
+### xStreamBufferSend
+
+```c
+size_t xStreamBufferSend(
+    StreamBufferHandle_t xStreamBuffer,
+    const void *         pvTxData,
+    size_t               xDataLengthBytes,
+    TickType_t           xTicksToWait
+);
+```
+
+Returns the number of bytes actually written. May be less than `xDataLengthBytes` if the buffer fills.
+
+---
+
+### xStreamBufferReceive
+
+```c
+size_t xStreamBufferReceive(
+    StreamBufferHandle_t xStreamBuffer,
+    void *               pvRxData,
+    size_t               xBufferLengthBytes,
+    TickType_t           xTicksToWait
+);
+```
+
+Returns the number of bytes received, which may be less than `xBufferLengthBytes`.
+
+---
+
+### ISR variants
+
+```c
+size_t xStreamBufferSendFromISR(
+    StreamBufferHandle_t xStreamBuffer,
+    const void *         pvTxData,
+    size_t               xDataLengthBytes,
+    BaseType_t *         pxHigherPriorityTaskWoken
+);
+
+size_t xStreamBufferReceiveFromISR(
+    StreamBufferHandle_t xStreamBuffer,
+    void *               pvRxData,
+    size_t               xBufferLengthBytes,
+    BaseType_t *         pxHigherPriorityTaskWoken
+);
+```
+
+---
+
+### Other stream buffer functions
+
+```c
+size_t   xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer );
+size_t   xStreamBufferBytesAvailable( StreamBufferHandle_t xStreamBuffer );
+BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer );
+BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer );
+BaseType_t xStreamBufferReset( StreamBufferHandle_t xStreamBuffer );
+void       vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer );
+```
+
+---
+
+## Message buffers
+
+Message buffers build on stream buffers to add length-framing. Each send writes a complete message; each receive reads exactly one message.
+
+### xMessageBufferCreate
+
+```c
+MessageBufferHandle_t xMessageBufferCreate( size_t xBufferSizeBytes );
+MessageBufferHandle_t xMessageBufferCreateStatic(
+    size_t              xBufferSizeBytes,
+    uint8_t *           pucMessageBufferStorageArea,
+    StaticMessageBuffer_t *pxStaticMessageBuffer
+);
+```
+
+`xBufferSizeBytes` is the total storage in bytes, including per-message length overhead (4 bytes per message on most platforms).
+
+---
+
+### xMessageBufferSend
+
+```c
+size_t xMessageBufferSend(
+    MessageBufferHandle_t xMessageBuffer,
+    const void *          pvTxData,
+    size_t                xDataLengthBytes,
+    TickType_t            xTicksToWait
+);
+```
+
+Sends a complete message. Returns `xDataLengthBytes` on success, 0 if the buffer is too full to hold the message within the timeout.
+
+---
+
+### xMessageBufferReceive
+
+```c
+size_t xMessageBufferReceive(
+    MessageBufferHandle_t xMessageBuffer,
+    void *                pvRxData,
+    size_t                xBufferLengthBytes,
+    TickType_t            xTicksToWait
+);
+```
+
+Receives one complete message into `pvRxData`. Returns 0 if no message is available within the timeout.
+
+```c
+/* ISR sends, task receives */
+uint8_t ucData[32];
+size_t xBytes = xMessageBufferReceive( xMsgBuf, ucData, sizeof( ucData ),
+                                        portMAX_DELAY );
+```
+
+---
+
+### Other message buffer functions
+
+```c
+size_t   xMessageBufferSpacesAvailable( MessageBufferHandle_t xMessageBuffer );
+BaseType_t xMessageBufferIsEmpty( MessageBufferHandle_t xMessageBuffer );
+BaseType_t xMessageBufferIsFull( MessageBufferHandle_t xMessageBuffer );
+BaseType_t xMessageBufferReset( MessageBufferHandle_t xMessageBuffer );
+void       vMessageBufferDelete( MessageBufferHandle_t xMessageBuffer );
+```

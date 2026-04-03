@@ -1,0 +1,124 @@
+---
+title: "AWS IoT Demos"
+description: "Run FreeRTOS AWS IoT demos on the Windows Simulator to test cloud connectivity before targeting hardware."
+---
+
+The FreeRTOS distribution includes Windows Simulator demos for every AWS IoT library. These let you test Device Shadow, OTA updates, Jobs, and Fleet Provisioning against real AWS IoT Core without any embedded hardware.
+
+## Prerequisites
+
+- An AWS account with IoT Core access
+- A registered IoT Thing with a certificate and private key
+- Visual Studio 2019+ on Windows
+
+## Common setup
+
+All AWS IoT demos share the same credential configuration. Edit `demo_config.h` in the demo directory:
+
+```c
+/* AWS IoT endpoint — find in AWS Console > IoT Core > Settings */
+#define democonfigMQTT_BROKER_ENDPOINT    "abcdefgh-ats.iot.us-east-1.amazonaws.com"
+
+/* Thing name registered in AWS IoT Core */
+#define democonfigCLIENT_IDENTIFIER       "my-freertos-device"
+
+/* PEM-encoded certificates — paste contents directly */
+#define democonfigROOT_CA_PEM \
+    "-----BEGIN CERTIFICATE-----\n" \
+    "...\n" \
+    "-----END CERTIFICATE-----\n"
+
+#define democonfigCLIENT_CERTIFICATE_PEM \
+    "-----BEGIN CERTIFICATE-----\n" \
+    "...\n" \
+    "-----END CERTIFICATE-----\n"
+
+#define democonfigCLIENT_PRIVATE_KEY_PEM \
+    "-----BEGIN EC PRIVATE KEY-----\n" \
+    "...\n" \
+    "-----END EC PRIVATE KEY-----\n"
+```
+
+## Device Shadow demo
+
+**Path:** `FreeRTOS-Plus/Demo/AWS/Device_Shadow_Windows_Simulator/`
+
+The demo:
+1. Connects to AWS IoT Core over MQTT with TLS
+2. Publishes an initial reported state to the device shadow
+3. Subscribes to the `/update/delta` topic
+4. Responds to desired-state changes by updating the reported state
+
+```c
+/* Shadow update document published by the demo */
+#define shadowexampleSHADOW_REPORTED_JSON \
+    "{"                                   \
+    "\"state\":{"                         \
+    "\"reported\":{"                      \
+    "\"powerOn\":%01d"                    \
+    "}"                                   \
+    "}"                                   \
+    "}"
+```
+
+## OTA demo
+
+**Path:** `FreeRTOS-Plus/Demo/AWS/Ota_Windows_Simulator/`
+
+The demo connects to AWS IoT, subscribes to OTA job topics, downloads a firmware image via HTTP, verifies the signature, and activates the new image. On the simulator it writes the image to a local file rather than flash.
+
+Additional config required:
+
+```c
+/* Code signing certificate for OTA image verification */
+#define otapalconfigCODE_SIGNING_CERTIFICATE \
+    "-----BEGIN CERTIFICATE-----\n" \
+    "...\n" \
+    "-----END CERTIFICATE-----\n"
+
+/* Current firmware version — must match the OTA job version */
+#define APP_VERSION_MAJOR    0
+#define APP_VERSION_MINOR    9
+#define APP_VERSION_BUILD    2
+```
+
+## Jobs demo
+
+**Path:** `FreeRTOS-Plus/Demo/AWS/Jobs_Windows_Simulator/`
+
+The demo polls for pending IoT Jobs, executes each job (simulated work), and updates the job status to `IN_PROGRESS` → `SUCCEEDED`.
+
+## Fleet Provisioning demo
+
+**Path:** `FreeRTOS-Plus/Demo/AWS/Fleet_Provisioning_Windows_Simulator/`
+
+Demonstrates the claim-and-provision workflow:
+1. Connect with a claim certificate (shared across all unprovisioned devices)
+2. Generate a new key pair on the device
+3. Submit a CSR to AWS via Fleet Provisioning
+4. Receive a unique signed certificate from AWS
+5. Store the certificate and reconnect with the device-specific identity
+
+## Device Defender demo
+
+**Path:** `FreeRTOS-Plus/Demo/AWS/Device_Defender_Windows_Simulator/`
+
+Collects and reports security metrics (open TCP ports, established connections) to AWS IoT Device Defender at a configurable interval.
+
+## Running a demo
+
+<Steps>
+  <Step title="Open the solution">
+    Open the `*.sln` file in the demo directory with Visual Studio.
+  </Step>
+  <Step title="Edit demo_config.h">
+    Paste your AWS endpoint, Thing name, and PEM certificates into `demo_config.h`.
+  </Step>
+  <Step title="Build and run">
+    Press **F5**. Watch the console for connection and operation logs.
+  </Step>
+</Steps>
+
+<Tip>
+  Enable verbose logging by setting `#define democonfigLOG_LEVEL LOG_DEBUG` in `demo_config.h` to see every MQTT packet exchanged with AWS IoT Core.
+</Tip>

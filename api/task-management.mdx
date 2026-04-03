@@ -1,0 +1,165 @@
+---
+title: "Task Management API"
+description: "Complete API reference for FreeRTOS task creation, deletion, scheduling, and introspection."
+---
+
+## xTaskCreate
+
+Creates a new task and adds it to the list of tasks that are ready to run.
+
+```c
+BaseType_t xTaskCreate(
+    TaskFunction_t    pvTaskCode,
+    const char *      pcName,
+    configSTACK_DEPTH_TYPE usStackDepth,
+    void *            pvParameters,
+    UBaseType_t       uxPriority,
+    TaskHandle_t *    pxCreatedTask
+);
+```
+
+<ParamField path="pvTaskCode" type="TaskFunction_t" required>
+  Pointer to the task function. Prototype: `void vTaskFunc(void *pvParameters)`.
+</ParamField>
+<ParamField path="pcName" type="const char *" required>
+  Descriptive name for the task, used for debugging. Max length `configMAX_TASK_NAME_LEN`.
+</ParamField>
+<ParamField path="usStackDepth" type="configSTACK_DEPTH_TYPE" required>
+  Stack size in **words** (not bytes). Use `configMINIMAL_STACK_SIZE` as a baseline.
+</ParamField>
+<ParamField path="pvParameters" type="void *">
+  Value passed as the parameter to the task function. May be NULL.
+</ParamField>
+<ParamField path="uxPriority" type="UBaseType_t" required>
+  Task priority. Range: `0` (lowest/idle) to `configMAX_PRIORITIES - 1` (highest).
+</ParamField>
+<ParamField path="pxCreatedTask" type="TaskHandle_t *">
+  Output handle to reference the created task. Pass NULL if not needed.
+</ParamField>
+
+Returns `pdPASS` on success, `errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY` if heap allocation fails.
+
+---
+
+## xTaskCreateStatic
+
+Creates a task using caller-provided memory (no heap required).
+
+```c
+TaskHandle_t xTaskCreateStatic(
+    TaskFunction_t  pvTaskCode,
+    const char *    pcName,
+    uint32_t        ulStackDepth,
+    void *          pvParameters,
+    UBaseType_t     uxPriority,
+    StackType_t *   puxStackBuffer,
+    StaticTask_t *  pxTaskBuffer
+);
+```
+
+<ParamField path="puxStackBuffer" type="StackType_t *" required>
+  Caller-allocated array of `StackType_t` with at least `ulStackDepth` elements.
+</ParamField>
+<ParamField path="pxTaskBuffer" type="StaticTask_t *" required>
+  Caller-allocated `StaticTask_t` structure to hold the task control block.
+</ParamField>
+
+Returns the task handle, or NULL if either buffer pointer is NULL.
+
+---
+
+## vTaskDelete
+
+Removes a task from all ready/blocked/suspended lists and frees its TCB and stack (if dynamically allocated).
+
+```c
+void vTaskDelete( TaskHandle_t xTaskToDelete );
+```
+
+Pass `NULL` to delete the calling task. The idle task frees memory for deleted tasks, so the idle task must be allowed CPU time after deletion.
+
+---
+
+## vTaskDelay
+
+Blocks the calling task for a specified number of ticks.
+
+```c
+void vTaskDelay( TickType_t xTicksToDelay );
+```
+
+Use `pdMS_TO_TICKS(ms)` to convert milliseconds to ticks. The delay is relative to when `vTaskDelay` is called.
+
+---
+
+## vTaskDelayUntil
+
+Blocks the calling task until an absolute tick count is reached. Use for fixed-frequency periodic tasks.
+
+```c
+void vTaskDelayUntil(
+    TickType_t * pxPreviousWakeTime,
+    TickType_t   xTimeIncrement
+);
+```
+
+```c
+/* 10 ms periodic task */
+TickType_t xLastWake = xTaskGetTickCount();
+for( ;; )
+{
+    vTaskDelayUntil( &xLastWake, pdMS_TO_TICKS( 10 ) );
+    /* Task body */
+}
+```
+
+---
+
+## vTaskSuspend / vTaskResume
+
+```c
+void vTaskSuspend( TaskHandle_t xTaskToSuspend );
+void vTaskResume( TaskHandle_t xTaskToResume );
+BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume );
+```
+
+`vTaskSuspend(NULL)` suspends the calling task. `xTaskResumeFromISR` returns `pdTRUE` if resuming the task should cause a context switch; pass the return value to `portYIELD_FROM_ISR`.
+
+---
+
+## Task priority
+
+```c
+UBaseType_t uxTaskPriorityGet( TaskHandle_t xTask );
+void        vTaskPrioritySet( TaskHandle_t xTask, UBaseType_t uxNewPriority );
+```
+
+---
+
+## Task introspection
+
+```c
+/* Stack high water mark in words — closer to 0 means less headroom */
+UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask );
+
+/* Task state: eRunning, eReady, eBlocked, eSuspended, eDeleted */
+eTaskState eTaskGetState( TaskHandle_t xTask );
+
+/* Current task handle */
+TaskHandle_t xTaskGetCurrentTaskHandle( void );
+
+/* Tick count since vTaskStartScheduler() */
+TickType_t xTaskGetTickCount( void );
+TickType_t xTaskGetTickCountFromISR( void );
+```
+
+---
+
+## Scheduler control
+
+```c
+void vTaskStartScheduler( void );   /* Start — never returns on success */
+void vTaskEndScheduler( void );     /* Stop (simulator/test only) */
+void vTaskSuspendAll( void );       /* Suspend context switching */
+BaseType_t xTaskResumeAll( void );  /* Resume context switching */
+```

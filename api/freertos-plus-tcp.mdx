@@ -1,0 +1,189 @@
+---
+title: "FreeRTOS+TCP API"
+description: "API reference for FreeRTOS+TCP socket functions."
+---
+
+FreeRTOS+TCP provides a BSD-like socket API. All functions are prefixed with `FreeRTOS_` and operate on `Socket_t` handles.
+
+## FreeRTOS_IPInit
+
+```c
+BaseType_t FreeRTOS_IPInit(
+    const uint8_t ucIPAddress[4],
+    const uint8_t ucNetMask[4],
+    const uint8_t ucGatewayAddress[4],
+    const uint8_t ucDNSServerAddress[4],
+    const uint8_t ucMACAddress[6]
+);
+```
+
+Initializes the TCP/IP stack and starts the IP task. Must be called before any socket operations.
+
+---
+
+## FreeRTOS_socket
+
+```c
+Socket_t FreeRTOS_socket(
+    BaseType_t xDomain,
+    BaseType_t xType,
+    BaseType_t xProtocol
+);
+```
+
+| Parameter | TCP | UDP |
+|-----------|-----|-----|
+| `xDomain` | `FREERTOS_AF_INET` | `FREERTOS_AF_INET` |
+| `xType` | `FREERTOS_SOCK_STREAM` | `FREERTOS_SOCK_DGRAM` |
+| `xProtocol` | `FREERTOS_IPPROTO_TCP` | `FREERTOS_IPPROTO_UDP` |
+
+Returns a `Socket_t`, or `FREERTOS_INVALID_SOCKET` on failure.
+
+---
+
+## FreeRTOS_bind
+
+```c
+BaseType_t FreeRTOS_bind(
+    Socket_t xSocket,
+    struct freertos_sockaddr *pxAddress,
+    socklen_t xAddressLength
+);
+```
+
+Binds a socket to a local address and port. Required for UDP receive sockets and TCP server sockets.
+
+---
+
+## FreeRTOS_connect
+
+```c
+BaseType_t FreeRTOS_connect(
+    Socket_t xClientSocket,
+    const struct freertos_sockaddr *pxAddress,
+    socklen_t xAddressLength
+);
+```
+
+Initiates a TCP connection. Blocks until connected or until the connect timeout (`FREERTOS_SO_SNDTIMEO`) expires.
+
+---
+
+## FreeRTOS_listen / FreeRTOS_accept
+
+```c
+BaseType_t FreeRTOS_listen( Socket_t xSocket, BaseType_t xBacklog );
+
+Socket_t FreeRTOS_accept(
+    Socket_t xServerSocket,
+    struct freertos_sockaddr *pxAddress,
+    socklen_t *pxAddressLength
+);
+```
+
+Used to implement TCP servers. `FreeRTOS_accept` blocks until a client connects and returns a new socket for the connection.
+
+---
+
+## FreeRTOS_send / FreeRTOS_recv
+
+```c
+BaseType_t FreeRTOS_send(
+    Socket_t xSocket,
+    const void *pvBuffer,
+    size_t uxDataLength,
+    BaseType_t xFlags
+);
+
+BaseType_t FreeRTOS_recv(
+    Socket_t xSocket,
+    void *pvBuffer,
+    size_t uxBufferLength,
+    BaseType_t xFlags
+);
+```
+
+Return the number of bytes sent/received, or a negative error code. Pass `xFlags = 0` for normal blocking operation.
+
+---
+
+## FreeRTOS_sendto / FreeRTOS_recvfrom
+
+```c
+BaseType_t FreeRTOS_sendto(
+    Socket_t xSocket,
+    const void *pvBuffer,
+    size_t uxTotalDataLength,
+    BaseType_t xFlags,
+    const struct freertos_sockaddr *pxDestinationAddress,
+    socklen_t xDestinationAddressLength
+);
+
+BaseType_t FreeRTOS_recvfrom(
+    Socket_t xSocket,
+    void *pvBuffer,
+    size_t uxBufferLength,
+    BaseType_t xFlags,
+    struct freertos_sockaddr *pxSourceAddress,
+    socklen_t *pxSourceAddressLength
+);
+```
+
+UDP send and receive with address.
+
+---
+
+## FreeRTOS_setsockopt
+
+```c
+BaseType_t FreeRTOS_setsockopt(
+    Socket_t xSocket,
+    int32_t lLevel,
+    int32_t lOptionName,
+    const void *pvOptionValue,
+    size_t uxOptionLength
+);
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `FREERTOS_SO_RCVTIMEO` | `TickType_t` | Receive timeout |
+| `FREERTOS_SO_SNDTIMEO` | `TickType_t` | Send timeout |
+| `FREERTOS_SO_TCPKEEPALIVE` | `BaseType_t` | Enable TCP keep-alive |
+| `FREERTOS_SO_WIN_PROPERTIES` | `WinProperties_t` | TCP window sizes |
+
+---
+
+## FreeRTOS_closesocket
+
+```c
+BaseType_t FreeRTOS_closesocket( Socket_t xSocket );
+```
+
+Closes the socket and releases all associated resources.
+
+---
+
+## Address helpers
+
+```c
+/* Convert dotted-decimal string to 32-bit address */
+uint32_t FreeRTOS_inet_addr( const char *pcIPAddress );
+
+/* Build address from four octets */
+uint32_t FreeRTOS_inet_addr_quick( uint8_t ucOctet0, uint8_t ucOctet1,
+                                    uint8_t ucOctet2, uint8_t ucOctet3 );
+
+uint16_t FreeRTOS_htons( uint16_t usIn );
+uint32_t FreeRTOS_htonl( uint32_t ulIn );
+```
+
+---
+
+## DNS lookup
+
+```c
+uint32_t FreeRTOS_gethostbyname( const char *pcHostName );
+```
+
+Resolves a hostname to an IPv4 address using the configured DNS server. Blocks until resolved or until timeout.

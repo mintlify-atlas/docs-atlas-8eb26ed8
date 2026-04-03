@@ -1,0 +1,139 @@
+---
+title: "Software Timers API"
+description: "API reference for FreeRTOS software timers — one-shot and auto-reload callbacks."
+---
+
+Software timers execute a callback function at a future time. They run in the context of the timer daemon task (not in an ISR), so the callback may use FreeRTOS API functions.
+
+Requires `configUSE_TIMERS 1` in `FreeRTOSConfig.h`.
+
+## xTimerCreate
+
+```c
+TimerHandle_t xTimerCreate(
+    const char *      pcTimerName,
+    TickType_t        xTimerPeriodInTicks,
+    BaseType_t        xAutoReload,
+    void *            pvTimerID,
+    TimerCallbackFunction_t pxCallbackFunction
+);
+```
+
+<ParamField path="pcTimerName" type="const char *" required>
+  Descriptive name for debugging.
+</ParamField>
+<ParamField path="xTimerPeriodInTicks" type="TickType_t" required>
+  Timer period in ticks. Use `pdMS_TO_TICKS(ms)`.
+</ParamField>
+<ParamField path="xAutoReload" type="BaseType_t" required>
+  `pdTRUE` for auto-reload (repeating), `pdFALSE` for one-shot.
+</ParamField>
+<ParamField path="pvTimerID" type="void *">
+  Application-defined ID stored in the timer. Retrieve with `pvTimerGetTimerID()`.
+</ParamField>
+<ParamField path="pxCallbackFunction" type="TimerCallbackFunction_t" required>
+  Callback prototype: `void vCallback( TimerHandle_t xTimer )`.
+</ParamField>
+
+```c
+static void prvTimerCallback( TimerHandle_t xTimer )
+{
+    /* Called every 500 ms */
+}
+
+TimerHandle_t xTimer = xTimerCreate(
+    "PollTimer",
+    pdMS_TO_TICKS( 500 ),
+    pdTRUE,     /* auto-reload */
+    NULL,
+    prvTimerCallback
+);
+configASSERT( xTimer != NULL );
+```
+
+---
+
+## xTimerCreateStatic
+
+```c
+TimerHandle_t xTimerCreateStatic(
+    const char *          pcTimerName,
+    TickType_t            xTimerPeriodInTicks,
+    BaseType_t            xAutoReload,
+    void *                pvTimerID,
+    TimerCallbackFunction_t pxCallbackFunction,
+    StaticTimer_t *       pxTimerBuffer
+);
+```
+
+---
+
+## xTimerStart / xTimerStop / xTimerReset
+
+```c
+/* All return pdPASS or pdFAIL */
+BaseType_t xTimerStart( TimerHandle_t xTimer, TickType_t xTicksToWait );
+BaseType_t xTimerStop ( TimerHandle_t xTimer, TickType_t xTicksToWait );
+BaseType_t xTimerReset( TimerHandle_t xTimer, TickType_t xTicksToWait );
+```
+
+`xTicksToWait` is the time to block if the timer command queue is full (not the timer period).
+
+```c
+xTimerStart( xTimer, 0 );   /* Start immediately, don't block */
+```
+
+---
+
+## xTimerChangePeriod
+
+```c
+BaseType_t xTimerChangePeriod(
+    TimerHandle_t xTimer,
+    TickType_t    xNewPeriod,
+    TickType_t    xTicksToWait
+);
+```
+
+Changes the period and restarts the timer. If the timer was stopped, this also starts it.
+
+---
+
+## ISR variants
+
+```c
+BaseType_t xTimerStartFromISR ( TimerHandle_t xTimer, BaseType_t *pxHigherPriorityTaskWoken );
+BaseType_t xTimerStopFromISR  ( TimerHandle_t xTimer, BaseType_t *pxHigherPriorityTaskWoken );
+BaseType_t xTimerResetFromISR ( TimerHandle_t xTimer, BaseType_t *pxHigherPriorityTaskWoken );
+BaseType_t xTimerChangePeriodFromISR( TimerHandle_t xTimer, TickType_t xNewPeriod,
+                                      BaseType_t *pxHigherPriorityTaskWoken );
+```
+
+---
+
+## Timer queries
+
+```c
+/* pdTRUE if the timer is active (started and not expired for one-shot) */
+BaseType_t xTimerIsTimerActive( TimerHandle_t xTimer );
+
+/* Application ID set at creation or by vTimerSetTimerID */
+void * pvTimerGetTimerID( TimerHandle_t xTimer );
+void   vTimerSetTimerID( TimerHandle_t xTimer, void *pvNewID );
+
+/* Timer period in ticks */
+TickType_t xTimerGetPeriod( TimerHandle_t xTimer );
+
+/* Tick count when the timer will next expire */
+TickType_t xTimerGetExpiryTime( TimerHandle_t xTimer );
+```
+
+---
+
+## xTimerDelete
+
+```c
+BaseType_t xTimerDelete( TimerHandle_t xTimer, TickType_t xTicksToWait );
+```
+
+Sends a delete command to the timer daemon task. The timer handle must not be used after this call returns `pdPASS`.

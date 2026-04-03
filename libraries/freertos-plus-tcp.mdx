@@ -1,0 +1,110 @@
+---
+title: "FreeRTOS+TCP"
+description: "Full IPv4/IPv6 TCP/IP networking stack for FreeRTOS with a BSD-like socket API."
+---
+
+FreeRTOS+TCP is a thread-safe TCP/IP stack built for FreeRTOS. It supports IPv4, IPv6, TCP, UDP, DHCP, DNS, ARP, and ICMP with an API that mirrors standard BSD sockets.
+
+## Source location
+
+```
+FreeRTOS-Plus/Source/FreeRTOS-Plus-TCP/
+```
+
+## Initialization
+
+```c
+#include "FreeRTOS_IP.h"
+
+static const uint8_t ucIPAddress[4]       = { 192, 168, 0, 10 };
+static const uint8_t ucNetMask[4]         = { 255, 255, 255, 0 };
+static const uint8_t ucGatewayAddress[4]  = { 192, 168, 0, 1 };
+static const uint8_t ucDNSServerAddress[4]= { 8, 8, 8, 8 };
+static const uint8_t ucMACAddress[6]      = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55 };
+
+int main( void )
+{
+    FreeRTOS_IPInit( ucIPAddress, ucNetMask, ucGatewayAddress,
+                     ucDNSServerAddress, ucMACAddress );
+    vTaskStartScheduler();
+    for( ;; );
+}
+
+/* Called when network comes up or goes down */
+void vApplicationIPNetworkEventHook( eIPCallbackEvent_t eNetworkEvent )
+{
+    if( eNetworkEvent == eNetworkUp )
+    {
+        /* Safe to create socket tasks now */
+    }
+}
+```
+
+## TCP client example
+
+```c
+#include "FreeRTOS_Sockets.h"
+
+void vTCPClientTask( void *pvParameters )
+{
+    Socket_t xSocket;
+    struct freertos_sockaddr xServer;
+
+    xSocket = FreeRTOS_socket( FREERTOS_AF_INET,
+                               FREERTOS_SOCK_STREAM,
+                               FREERTOS_IPPROTO_TCP );
+    configASSERT( xSocket != FREERTOS_INVALID_SOCKET );
+
+    xServer.sin_family = FREERTOS_AF_INET;
+    xServer.sin_port   = FreeRTOS_htons( 8080 );
+    xServer.sin_addr   = FreeRTOS_inet_addr_quick( 192, 168, 0, 100 );
+
+    FreeRTOS_connect( xSocket, &xServer, sizeof( xServer ) );
+
+    const char *pcMsg = "Hello\r\n";
+    FreeRTOS_send( xSocket, pcMsg, strlen( pcMsg ), 0 );
+
+    FreeRTOS_closesocket( xSocket );
+    vTaskDelete( NULL );
+}
+```
+
+## UDP example
+
+```c
+Socket_t xSocket = FreeRTOS_socket( FREERTOS_AF_INET,
+                                     FREERTOS_SOCK_DGRAM,
+                                     FREERTOS_IPPROTO_UDP );
+
+struct freertos_sockaddr xBind = { .sin_port = FreeRTOS_htons( 5000 ) };
+FreeRTOS_bind( xSocket, &xBind, sizeof( xBind ) );
+
+char ucBuf[64];
+struct freertos_sockaddr xFrom;
+socklen_t xLen = sizeof( xFrom );
+FreeRTOS_recvfrom( xSocket, ucBuf, sizeof( ucBuf ), 0, &xFrom, &xLen );
+```
+
+## Socket options
+
+```c
+TickType_t xTimeout = pdMS_TO_TICKS( 5000 );
+FreeRTOS_setsockopt( xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeout, sizeof( xTimeout ) );
+FreeRTOS_setsockopt( xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeout, sizeof( xTimeout ) );
+```
+
+## Key FreeRTOSIPConfig.h settings
+
+```c
+#define ipconfigUSE_DHCP                   1
+#define ipconfigUSE_DNS                    1
+#define ipconfigUSE_IPv6                   1
+#define ipconfigNETWORK_MTU                1500
+#define ipconfigTCP_MSS                    1460
+#define ipconfigIP_TASK_PRIORITY           ( configMAX_PRIORITIES - 2 )
+#define ipconfigIP_TASK_STACK_SIZE_WORDS   ( configMINIMAL_STACK_SIZE * 5 )
+```
+
+<Note>
+  Demo projects for FreeRTOS+TCP are in `FreeRTOS-Plus/Demo/`. The `FreeRTOS_Plus_TCP_Minimal_Windows_Simulator` project is the fastest way to evaluate the stack without hardware.
+</Note>

@@ -1,0 +1,128 @@
+---
+title: "FreeRTOS+CLI API"
+description: "API reference for FreeRTOS+CLI command registration and processing functions."
+---
+
+## CLI_Command_Definition_t
+
+Every command is described by a `CLI_Command_Definition_t` struct:
+
+```c
+typedef struct xCOMMAND_LINE_INPUT
+{
+    const char * const pcCommand;                  /* Command string, all lowercase */
+    const char * const pcHelpString;               /* Help text, ending with \r\n */
+    const pdCOMMAND_LINE_CALLBACK pxCommandInterpreter; /* Callback function */
+    int8_t cExpectedNumberOfParameters;            /* -1 for variable, 0 for none */
+} CLI_Command_Definition_t;
+```
+
+The callback prototype:
+
+```c
+typedef BaseType_t (* pdCOMMAND_LINE_CALLBACK)(
+    char *       pcWriteBuffer,    /* Write output here */
+    size_t       xWriteBufferLen,  /* Size of pcWriteBuffer */
+    const char * pcCommandString   /* Full input string */
+);
+```
+
+Return `pdFALSE` when output is complete, `pdTRUE` if more output will follow on subsequent calls.
+
+---
+
+## FreeRTOS_CLIRegisterCommand
+
+```c
+BaseType_t FreeRTOS_CLIRegisterCommand(
+    const CLI_Command_Definition_t * const pxCommandToRegister
+);
+```
+
+Adds a command to the interpreter's command list. Must be called before `FreeRTOS_CLIProcessCommand` is used. Returns `pdPASS` on success.
+
+The `pxCommandToRegister` pointer must remain valid for the lifetime of the application (declare the struct as `static const`).
+
+---
+
+## FreeRTOS_CLIRegisterCommandStatic
+
+```c
+BaseType_t FreeRTOS_CLIRegisterCommandStatic(
+    const CLI_Command_Definition_t * const pxCommandToRegister,
+    CLI_Definition_List_Item_t *           pxCliDefinitionListItemBuffer
+);
+```
+
+Static variant — the caller provides the list item buffer. Requires `configSUPPORT_STATIC_ALLOCATION 1`.
+
+---
+
+## FreeRTOS_CLIProcessCommand
+
+```c
+BaseType_t FreeRTOS_CLIProcessCommand(
+    const char * const pcCommandInput,
+    char *             pcWriteBuffer,
+    size_t             xWriteBufferLen
+);
+```
+
+<ParamField path="pcCommandInput" type="const char *" required>
+  The full command string as entered by the user (null-terminated).
+</ParamField>
+<ParamField path="pcWriteBuffer" type="char *" required>
+  Buffer to receive command output.
+</ParamField>
+<ParamField path="xWriteBufferLen" type="size_t" required>
+  Size of `pcWriteBuffer` in bytes.
+</ParamField>
+
+Locates the matching command and calls its callback. Returns `pdTRUE` if the callback indicates more output is pending — call `FreeRTOS_CLIProcessCommand` again with the same `pcCommandInput` until `pdFALSE` is returned.
+
+<Warning>
+  `FreeRTOS_CLIProcessCommand` is not re-entrant. Only one task may call it at a time.
+</Warning>
+
+---
+
+## FreeRTOS_CLIGetParameter
+
+```c
+const char * FreeRTOS_CLIGetParameter(
+    const char *pcCommandString,
+    UBaseType_t uxWantedParameter,
+    BaseType_t *pxParameterStringLength
+);
+```
+
+<ParamField path="pcCommandString" type="const char *" required>
+  The full command string passed to the callback.
+</ParamField>
+<ParamField path="uxWantedParameter" type="UBaseType_t" required>
+  1-based parameter index (1 = first parameter after the command name).
+</ParamField>
+<ParamField path="pxParameterStringLength" type="BaseType_t *" required>
+  Output: length of the returned parameter string (not null-terminated).
+</ParamField>
+
+Returns a pointer into `pcCommandString` at the start of the requested parameter, or NULL if the parameter does not exist.
+
+```c
+BaseType_t xLen;
+const char *pcParam = FreeRTOS_CLIGetParameter( pcCommandString, 1, &xLen );
+if( pcParam != NULL )
+{
+    /* Use pcParam[0..xLen-1] */
+}
+```
+
+---
+
+## FreeRTOS_CLIGetOutputBuffer
+
+```c
+char * FreeRTOS_CLIGetOutputBuffer( void );
+```
+
+Returns a pointer to the shared output buffer declared inside the CLI implementation. This buffer can be shared across multiple console interfaces (e.g., UART and USB CDC) since the CLI is not re-entrant anyway.

@@ -1,80 +1,165 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Get FreeRTOS running on your hardware or simulator in a few steps."
 ---
 
-## Get started in three steps
+This guide walks you from a fresh clone to a running FreeRTOS application. The fastest way to evaluate FreeRTOS is using the Windows or POSIX simulator — no hardware required.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+- A C99-compatible compiler (GCC, IAR, Keil/ARMCC, or MSVC)
+- Git with submodule support
+- For Windows simulator: Visual Studio 2019+ or MinGW
+- For POSIX simulator: GCC on Linux or macOS
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Clone the repository">
+    Always clone with `--recurse-submodules` — the kernel and all libraries are Git submodules:
 
-### Step 2: Deploy your changes
+    <CodeGroup>
+    ```bash HTTPS
+    git clone https://github.com/FreeRTOS/FreeRTOS.git --recurse-submodules
+    ```
+    ```bash SSH
+    git clone git@github.com:FreeRTOS/FreeRTOS.git --recurse-submodules
+    ```
+    </CodeGroup>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <Warning>
+      Downloading the ZIP from GitHub does **not** include submodule contents. You must use `git clone`.
+    </Warning>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Open a demo project">
+    Navigate to a demo matching your target environment:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    | Environment | Path |
+    |-------------|------|
+    | Windows (MSVC) | `FreeRTOS/Demo/WIN32-MSVC/` |
+    | Windows (MinGW) | `FreeRTOS/Demo/WIN32-MingW/` |
+    | Linux/macOS (POSIX) | `FreeRTOS/Demo/Posix_GCC/` |
+    | QEMU ARM Cortex-M3 | `FreeRTOS/Demo/CORTEX_LM3S6965_GCC_QEMU/` |
+    | QEMU RISC-V | `FreeRTOS/Demo/RISC-V_RV32_QEMU_VIRT_GCC/` |
+    | STM32F407 (Keil/GCC) | `FreeRTOS/Demo/CORTEX_M4F_STM32F407ZG-SK/` |
 
-### Step 3: Go live
+    Each demo is pre-configured and ready to build. Open the project file in your IDE or run `make`/`cmake` from the demo directory.
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Review FreeRTOSConfig.h">
+    Every FreeRTOS project needs a `FreeRTOSConfig.h`. The demos include a pre-configured one. Key settings to know:
+
+    ```c FreeRTOSConfig.h
+    /* Scheduler behavior */
+    #define configUSE_PREEMPTION              1
+    #define configUSE_TIME_SLICING            1
+
+    /* Tick rate — 1000 Hz = 1ms tick */
+    #define configTICK_RATE_HZ               ( ( TickType_t ) 1000 )
+
+    /* CPU clock in Hz (set for your hardware) */
+    #define configCPU_CLOCK_HZ               ( ( unsigned long ) 25000000 )
+
+    /* Task priorities */
+    #define configMAX_PRIORITIES             ( 5 )
+
+    /* Memory */
+    #define configTOTAL_HEAP_SIZE            ( ( size_t ) ( 75 * 1024 ) )
+    #define configMINIMAL_STACK_SIZE         ( ( unsigned short ) 128 )
+
+    /* API inclusions */
+    #define INCLUDE_vTaskDelay               1
+    #define INCLUDE_vTaskDelayUntil          1
+    #define INCLUDE_vTaskDelete              1
+    #define INCLUDE_vTaskSuspend             1
+    ```
+  </Step>
+
+  <Step title="Write your first tasks">
+    Replace the demo's main.c with a minimal two-task application:
+
+    ```c main.c
+    #include "FreeRTOS.h"
+    #include "task.h"
+    #include "queue.h"
+
+    #define QUEUE_LENGTH    5
+    #define ITEM_SIZE       sizeof( uint32_t )
+
+    static QueueHandle_t xQueue;
+
+    /* Producer task: sends incrementing values to the queue */
+    static void vProducerTask( void *pvParameters )
+    {
+        uint32_t ulValueToSend = 0;
+
+        for( ;; )
+        {
+            xQueueSend( xQueue, &ulValueToSend, portMAX_DELAY );
+            ulValueToSend++;
+            vTaskDelay( pdMS_TO_TICKS( 200 ) );
+        }
+    }
+
+    /* Consumer task: receives values from the queue */
+    static void vConsumerTask( void *pvParameters )
+    {
+        uint32_t ulReceivedValue;
+
+        for( ;; )
+        {
+            if( xQueueReceive( xQueue, &ulReceivedValue, portMAX_DELAY ) == pdPASS )
+            {
+                /* Process the received value */
+            }
+        }
+    }
+
+    int main( void )
+    {
+        /* Create a queue to hold 5 uint32_t values */
+        xQueue = xQueueCreate( QUEUE_LENGTH, ITEM_SIZE );
+
+        configASSERT( xQueue != NULL );
+
+        /* Create tasks */
+        xTaskCreate( vProducerTask, "Producer", configMINIMAL_STACK_SIZE, NULL, 2, NULL );
+        xTaskCreate( vConsumerTask, "Consumer", configMINIMAL_STACK_SIZE, NULL, 1, NULL );
+
+        /* Start the scheduler — this never returns */
+        vTaskStartScheduler();
+
+        /* Should never reach here */
+        for( ;; );
+    }
+    ```
+  </Step>
+
+  <Step title="Build and run">
+    Build the project using your toolchain. For the POSIX demo on Linux:
+
+    ```bash
+    cd FreeRTOS/Demo/Posix_GCC
+    make
+    ./build/posix_demo
+    ```
+
+    For the Windows MSVC demo, open `WIN32.sln` in Visual Studio and press **F5**.
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Kernel Concepts" icon="microchip" href="/kernel/tasks">
+    Learn about tasks, scheduling, and inter-task communication
+  </Card>
+  <Card title="Configuration Reference" icon="sliders" href="/configuration/freertos-config">
+    All FreeRTOSConfig.h options explained
+  </Card>
+  <Card title="FreeRTOS+TCP" icon="network-wired" href="/libraries/freertos-plus-tcp">
+    Add networking to your FreeRTOS application
+  </Card>
+  <Card title="AWS IoT Libraries" icon="cloud" href="/libraries/aws-iot-libraries">
+    Connect your device to AWS IoT Core
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

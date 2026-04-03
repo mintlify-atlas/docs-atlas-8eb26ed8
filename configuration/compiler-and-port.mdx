@@ -1,0 +1,161 @@
+---
+title: "Compiler and Port Setup"
+description: "How to select the correct FreeRTOS port for your processor architecture and toolchain."
+---
+
+FreeRTOS is portable across 40+ processor architectures. The **port** provides the processor-specific code: context switching, tick timer setup, and interrupt handling. Each port lives in `FreeRTOS/Source/portable/`.
+
+## Port directory structure
+
+```
+FreeRTOS/Source/portable/
+├── GCC/
+│   ├── ARM_CM4F/          # Cortex-M4 with FPU (GCC)
+│   ├── ARM_CM3/           # Cortex-M3 (GCC)
+│   ├── ARM_CM0/           # Cortex-M0/M0+ (GCC)
+│   ├── ARM_CM33_NTZ/      # Cortex-M33 no TrustZone (GCC)
+│   ├── RISC-V/            # RISC-V (GCC)
+│   └── ...
+├── IAR/
+│   ├── ARM_CM4F/
+│   └── ...
+├── RVDS/                  # Keil/ARM compiler
+├── MSVC-MingW/            # Windows simulator
+├── GCC/Posix/             # Linux/macOS POSIX simulator
+└── MemMang/               # heap_1 through heap_5
+```
+
+## Selecting your port
+
+Add exactly two files to your build:
+
+1. The port source file: `FreeRTOS/Source/portable/<COMPILER>/<ARCH>/port.c`
+2. One heap implementation: `FreeRTOS/Source/portable/MemMang/heap_4.c`
+
+### ARM Cortex-M (GCC)
+
+| Core | Port path |
+|------|-----------|
+| Cortex-M0 / M0+ | `GCC/ARM_CM0/` |
+| Cortex-M3 | `GCC/ARM_CM3/` |
+| Cortex-M4 (no FPU) | `GCC/ARM_CM3/` |
+| Cortex-M4F (with FPU) | `GCC/ARM_CM4F/` |
+| Cortex-M7 | `GCC/ARM_CM7/r0p1/` |
+| Cortex-M23 (no TZ) | `GCC/ARM_CM23_NTZ/` |
+| Cortex-M33 (no TZ) | `GCC/ARM_CM33_NTZ/` |
+| Cortex-M33 (with TZ) | `GCC/ARM_CM33/` |
+
+### ARM Cortex-A/R (GCC)
+
+| Core | Port path |
+|------|-----------|
+| Cortex-A9 (32-bit) | `GCC/ARM_CA9/` |
+| Cortex-A53 (64-bit) | `GCC/ARM_CA53_64_BIT/` |
+| Cortex-R4/R5 | `GCC/ARM_CRx_MPU/` |
+
+### RISC-V (GCC)
+
+```
+GCC/RISC-V/port.c
+GCC/RISC-V/portASM.S
+```
+
+Requires `FreeRTOSConfig.h` entries:
+```c
+#define configMTIME_BASE_ADDRESS    ( 0x0200BFF8UL )   /* mtime register */
+#define configMTIMECMP_BASE_ADDRESS ( 0x02004000UL )   /* mtimecmp register */
+```
+
+### Windows simulator (MSVC / MinGW)
+
+```
+MSVC-MingW/port.c
+```
+
+The Windows port simulates FreeRTOS behavior on Windows using threads. Useful for development and testing without hardware.
+
+### POSIX simulator (Linux / macOS)
+
+```
+GCC/Posix/port.c
+```
+
+Runs FreeRTOS tasks as POSIX threads. Ideal for unit testing and development.
+
+## Required kernel source files
+
+In addition to the port, include these files from `FreeRTOS/Source/`:
+
+```
+FreeRTOS/Source/tasks.c
+FreeRTOS/Source/queue.c
+FreeRTOS/Source/list.c
+FreeRTOS/Source/timers.c          # If configUSE_TIMERS = 1
+FreeRTOS/Source/event_groups.c   # If using event groups
+FreeRTOS/Source/stream_buffer.c  # If using stream/message buffers
+FreeRTOS/Source/croutine.c       # Only if using co-routines (legacy)
+```
+
+## Include path
+
+Add these directories to your compiler's include path:
+
+```
+FreeRTOS/Source/include/
+FreeRTOS/Source/portable/<COMPILER>/<ARCH>/
+<path to your FreeRTOSConfig.h>
+```
+
+## Build system examples
+
+### CMake
+
+```cmake
+cmake_minimum_required(VERSION 3.15)
+project(my_freertos_app C)
+
+set(FREERTOS_DIR ${CMAKE_SOURCE_DIR}/FreeRTOS/Source)
+set(FREERTOS_PORT GCC/ARM_CM4F)
+
+add_executable(app
+    main.c
+    ${FREERTOS_DIR}/tasks.c
+    ${FREERTOS_DIR}/queue.c
+    ${FREERTOS_DIR}/list.c
+    ${FREERTOS_DIR}/timers.c
+    ${FREERTOS_DIR}/event_groups.c
+    ${FREERTOS_DIR}/stream_buffer.c
+    ${FREERTOS_DIR}/portable/${FREERTOS_PORT}/port.c
+    ${FREERTOS_DIR}/portable/MemMang/heap_4.c
+)
+
+target_include_directories(app PRIVATE
+    ${FREERTOS_DIR}/include
+    ${FREERTOS_DIR}/portable/${FREERTOS_PORT}
+    ${CMAKE_SOURCE_DIR}/config   # directory containing FreeRTOSConfig.h
+)
+```
+
+### Makefile
+
+```makefile
+FREERTOS = FreeRTOS/Source
+PORT     = $(FREERTOS)/portable/GCC/ARM_CM4F
+
+SRCS += $(FREERTOS)/tasks.c
+SRCS += $(FREERTOS)/queue.c
+SRCS += $(FREERTOS)/list.c
+SRCS += $(FREERTOS)/timers.c
+SRCS += $(FREERTOS)/event_groups.c
+SRCS += $(FREERTOS)/stream_buffer.c
+SRCS += $(PORT)/port.c
+SRCS += $(FREERTOS)/portable/MemMang/heap_4.c
+
+INCLUDES += -I$(FREERTOS)/include
+INCLUDES += -I$(PORT)
+INCLUDES += -Iconfig
+```
+
+<Note>
+  Browse the `FreeRTOS/Demo/` directory for a project matching your hardware. Each demo includes a complete, tested build system configuration you can adapt.
+</Note>

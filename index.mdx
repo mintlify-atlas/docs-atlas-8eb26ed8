@@ -1,97 +1,104 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "FreeRTOS Documentation"
+description: "The real-time operating system for microcontrollers and small microprocessors. Build reliable, deterministic embedded systems with battle-tested task scheduling, networking, and cloud connectivity."
 ---
 
-## Setting up
+FreeRTOS is a market-leading real-time operating system (RTOS) for microcontrollers and small microprocessors. It provides the kernel primitives you need — task scheduling, queues, semaphores, timers — plus a rich ecosystem of libraries for networking, security, and AWS IoT connectivity.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get FreeRTOS running on your target in minutes with a step-by-step guide.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Clone the Repository" icon="code-branch" href="/cloning-the-repository">
+    Set up the FreeRTOS distribution with all submodules and dependencies.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Kernel Concepts" icon="microchip" href="/kernel/tasks">
+    Understand tasks, scheduling, queues, and memory management in depth.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="book" href="/api/task-management">
+    Complete reference for all FreeRTOS kernel and library APIs.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What's included
 
-Everything you need to create world-class documentation.
+FreeRTOS ships as a complete distribution with the kernel and a curated set of complementary libraries:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="FreeRTOS+TCP" icon="network-wired" href="/libraries/freertos-plus-tcp">
+    Full IPv4/IPv6 TCP/IP stack with BSD-like socket API for networked embedded devices.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="coreMQTT" icon="cloud" href="/libraries/core-mqtt">
+    Lightweight MQTT 3.1.1 client optimized for constrained devices and AWS IoT Core.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="coreHTTP" icon="globe" href="/libraries/core-http">
+    HTTP/1.1 client library with TLS support via mbedTLS or WolfSSL.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="AWS IoT Libraries" icon="aws" href="/libraries/aws-iot-libraries">
+    Device Shadow, Defender, Jobs, OTA updates, Fleet Provisioning, and more.
   </Card>
-</Columns>
+  <Card title="FreeRTOS+CLI" icon="terminal" href="/libraries/freertos-plus-cli">
+    Extensible command-line interface for embedded applications and debugging.
+  </Card>
+  <Card title="corePKCS11" icon="lock" href="/libraries/core-pkcs11">
+    PKCS#11 cryptographic interface for secure key storage and TLS operations.
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Get started
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Clone the repository">
+    Clone FreeRTOS with all submodules to get the kernel and all companion libraries:
+    ```bash
+    git clone https://github.com/FreeRTOS/FreeRTOS.git --recurse-submodules
+    ```
+  </Step>
+  <Step title="Choose your port">
+    Browse `FreeRTOS/Demo/` for a pre-configured project matching your hardware (ARM Cortex-M, RISC-V, AVR, PIC, and many more) and toolchain (GCC, IAR, Keil, MSVC).
+  </Step>
+  <Step title="Configure the kernel">
+    Create a `FreeRTOSConfig.h` file in your project to set heap size, tick rate, task priorities, and enable optional kernel features.
+  </Step>
+  <Step title="Write your first task">
+    Define your application logic as FreeRTOS tasks and start the scheduler:
+    ```c
+    void vMyTask(void *pvParameters) {
+        for (;;) {
+            /* Task body */
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
+
+    int main(void) {
+        xTaskCreate(vMyTask, "MyTask", 128, NULL, 1, NULL);
+        vTaskStartScheduler();
+        /* Never reached */
+        return 0;
+    }
+    ```
+  </Step>
+</Steps>
+
+## Supported platforms
+
+FreeRTOS supports over 40 processor architectures and hundreds of hardware platforms:
+
+<CardGroup cols={2}>
+  <Card title="ARM Cortex-M" icon="microchip" href="/configuration/compiler-and-port">
+    Cortex-M0, M0+, M3, M4, M7, M23, M33 — including MPU variants
+  </Card>
+  <Card title="ARM Cortex-A/R" icon="microchip" href="/configuration/compiler-and-port">
+    Cortex-A5, A9, A53 (64-bit), Cortex-R4, R5 — for high-performance embedded
+  </Card>
+  <Card title="RISC-V" icon="microchip" href="/configuration/compiler-and-port">
+    RV32 and RV64 cores, including SiFive HiFive1 and QEMU VIRT targets
+  </Card>
+  <Card title="Demo Projects" icon="flask" href="/demos/overview">
+    Browse hundreds of pre-configured demos for popular evaluation boards
+  </Card>
+</CardGroup>
+
+<Note>
+  FreeRTOS is MIT licensed. All libraries in this distribution are also available under open-source licenses. See [LICENSE.md](https://github.com/FreeRTOS/FreeRTOS/blob/main/LICENSE.md) for details.
+</Note>

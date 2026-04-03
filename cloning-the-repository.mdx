@@ -1,0 +1,87 @@
+---
+title: "Cloning the Repository"
+description: "How to correctly clone the FreeRTOS repository including all kernel and library submodules."
+---
+
+The FreeRTOS repository uses Git submodules to include the kernel and all companion libraries. You must clone with `--recurse-submodules` to get a complete, buildable distribution.
+
+<Warning>
+  Downloading the ZIP file from the GitHub UI does **not** include submodule contents and is not a valid Git repository. Always use `git clone`.
+</Warning>
+
+## Cloning from scratch
+
+<CodeGroup>
+```bash HTTPS
+git clone https://github.com/FreeRTOS/FreeRTOS.git --recurse-submodules
+```
+```bash SSH
+git clone git@github.com:FreeRTOS/FreeRTOS.git --recurse-submodules
+```
+</CodeGroup>
+
+## Windows setup
+
+Windows requires additional configuration because this repository contains symbolic links.
+
+<Steps>
+  <Step title="Enable symlink support in Git">
+    ```bash
+    git config --global core.symlinks true
+    ```
+  </Step>
+  <Step title="Enable Developer Mode or use elevated console">
+    Either enable [Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) in Windows Settings, or run your terminal as Administrator when executing any `git` command that writes files (`git clone`, `git pull`, `git submodule update`).
+
+    Without this, symbolic links are written as plain text files containing the link target path, which breaks the build.
+  </Step>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/FreeRTOS/FreeRTOS.git --recurse-submodules
+    ```
+  </Step>
+</Steps>
+
+## If you already cloned without submodules
+
+If you cloned without `--recurse-submodules`, initialize and update all submodules manually:
+
+```bash
+git submodule update --init --recursive
+```
+
+## Submodule overview
+
+The following components are included as Git submodules, as defined in `manifest.yml`:
+
+| Submodule | Path | Description |
+|-----------|------|-------------|
+| FreeRTOS-Kernel | `FreeRTOS/Source/` | Core RTOS kernel |
+| FreeRTOS-Plus-TCP | `FreeRTOS-Plus/Source/FreeRTOS-Plus-TCP/` | TCP/IP stack |
+| coreMQTT | `FreeRTOS-Plus/Source/Application-Protocols/coreMQTT/` | MQTT client |
+| coreHTTP | `FreeRTOS-Plus/Source/Application-Protocols/coreHTTP/` | HTTP client |
+| coreSNTP | `FreeRTOS-Plus/Source/Application-Protocols/coreSNTP/` | SNTP client |
+| coreJSON | `FreeRTOS-Plus/Source/coreJSON/` | JSON parser |
+| corePKCS11 | `FreeRTOS-Plus/Source/corePKCS11/` | PKCS#11 interface |
+| AWS OTA | `FreeRTOS-Plus/Source/AWS/ota/` | OTA update library |
+| AWS Device Shadow | `FreeRTOS-Plus/Source/AWS/device-shadow/` | Device Shadow |
+| AWS Device Defender | `FreeRTOS-Plus/Source/AWS/device-defender/` | Device Defender |
+| AWS Jobs | `FreeRTOS-Plus/Source/AWS/jobs/` | IoT Jobs |
+| AWS Fleet Provisioning | `FreeRTOS-Plus/Source/AWS/fleet-provisioning/` | Fleet Provisioning |
+| SigV4 | `FreeRTOS-Plus/Source/AWS/sigv4/` | AWS Signature V4 |
+| wolfSSL | `FreeRTOS-Plus/ThirdParty/wolfSSL/` | TLS library |
+| mbedTLS | `FreeRTOS-Plus/ThirdParty/mbedtls/` | TLS library |
+| FreeRTOS-Cellular-Interface | `FreeRTOS-Plus/Source/FreeRTOS-Cellular-Interface/` | Cellular modem interface |
+
+## Keeping submodules up to date
+
+After pulling new commits:
+
+```bash
+git pull
+git submodule update --init --recursive
+```
+
+<Tip>
+  Pin your project to a specific FreeRTOS release tag (e.g., `202411.00`) for reproducible builds. Browse [releases](https://github.com/FreeRTOS/FreeRTOS/releases) to see all available versions.
+</Tip>

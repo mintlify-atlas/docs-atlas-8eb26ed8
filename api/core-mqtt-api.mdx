@@ -1,0 +1,170 @@
+---
+title: "coreMQTT API"
+description: "API reference for the coreMQTT MQTT 3.1.1 client library."
+---
+
+## MQTT_Init
+
+```c
+MQTTStatus_t MQTT_Init(
+    MQTTContext_t *            pContext,
+    const TransportInterface_t *pTransport,
+    MQTTGetCurrentTimeFunc_t   getTimeFunction,
+    MQTTEventCallback_t        userCallback,
+    const MQTTFixedBuffer_t *  pNetworkBuffer
+);
+```
+
+Initializes an `MQTTContext_t`. Must be called before any other MQTT function.
+
+<ParamField path="pContext" type="MQTTContext_t *" required>
+  Caller-allocated context structure.
+</ParamField>
+<ParamField path="pTransport" type="TransportInterface_t *" required>
+  Transport interface with `send` and `recv` function pointers and a network context.
+</ParamField>
+<ParamField path="getTimeFunction" type="MQTTGetCurrentTimeFunc_t" required>
+  Function that returns elapsed milliseconds — use `FreeRTOS_GetTickCount` or a similar wrapper.
+</ParamField>
+<ParamField path="userCallback" type="MQTTEventCallback_t" required>
+  Callback invoked for incoming packets (PUBLISH, SUBACK, PUBACK, etc.).
+</ParamField>
+<ParamField path="pNetworkBuffer" type="MQTTFixedBuffer_t *" required>
+  Caller-allocated buffer used for packet serialization.
+</ParamField>
+
+---
+
+## MQTT_Connect
+
+```c
+MQTTStatus_t MQTT_Connect(
+    MQTTContext_t *          pContext,
+    const MQTTConnectInfo_t *pConnectInfo,
+    const MQTTPublishInfo_t *pWillInfo,
+    uint32_t                 timeoutMs,
+    bool *                   pSessionPresent
+);
+```
+
+<ParamField path="pConnectInfo" type="MQTTConnectInfo_t *" required>
+  Contains client ID, keep-alive interval, clean session flag, and optional username/password.
+</ParamField>
+<ParamField path="pWillInfo" type="MQTTPublishInfo_t *">
+  Last-will message. Pass NULL if not needed.
+</ParamField>
+<ParamField path="timeoutMs" type="uint32_t" required>
+  Milliseconds to wait for CONNACK.
+</ParamField>
+<ParamField path="pSessionPresent" type="bool *" required>
+  Output: `true` if the broker has a previous session for this client ID.
+</ParamField>
+
+---
+
+## MQTT_Publish
+
+```c
+MQTTStatus_t MQTT_Publish(
+    MQTTContext_t *          pContext,
+    const MQTTPublishInfo_t *pPublishInfo,
+    uint16_t                 packetId
+);
+```
+
+`packetId` is ignored for QoS 0. For QoS 1/2, obtain a packet ID with `MQTT_GetPacketId()`.
+
+**MQTTPublishInfo_t fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `qos` | `MQTTQoS_t` | `MQTTQoS0`, `MQTTQoS1`, or `MQTTQoS2` |
+| `retain` | `bool` | Set retain flag |
+| `dup` | `bool` | Duplicate flag (set by library on retry) |
+| `pTopicName` | `const char *` | Topic string |
+| `topicNameLength` | `uint16_t` | Length of topic string |
+| `pPayload` | `const void *` | Payload data |
+| `payloadLength` | `size_t` | Payload size in bytes |
+
+---
+
+## MQTT_Subscribe
+
+```c
+MQTTStatus_t MQTT_Subscribe(
+    MQTTContext_t *               pContext,
+    const MQTTSubscribeInfo_t *   pSubscriptionList,
+    size_t                        subscriptionCount,
+    uint16_t                      packetId
+);
+```
+
+`pSubscriptionList` is an array of `MQTTSubscribeInfo_t` with `pTopicFilter`, `topicFilterLength`, and `qos` fields.
+
+---
+
+## MQTT_Unsubscribe
+
+```c
+MQTTStatus_t MQTT_Unsubscribe(
+    MQTTContext_t *               pContext,
+    const MQTTSubscribeInfo_t *   pSubscriptionList,
+    size_t                        subscriptionCount,
+    uint16_t                      packetId
+);
+```
+
+---
+
+## MQTT_Disconnect
+
+```c
+MQTTStatus_t MQTT_Disconnect( MQTTContext_t *pContext );
+```
+
+Sends a DISCONNECT packet and closes the transport.
+
+---
+
+## MQTT_ProcessLoop
+
+```c
+MQTTStatus_t MQTT_ProcessLoop( MQTTContext_t *pContext );
+```
+
+Reads incoming data from the transport, processes packets, and sends keep-alive PINGREQs as needed. Call periodically from a dedicated task or loop.
+
+---
+
+## MQTT_ReceiveLoop
+
+```c
+MQTTStatus_t MQTT_ReceiveLoop( MQTTContext_t *pContext );
+```
+
+Like `MQTT_ProcessLoop` but does not send PINGREQs. Use when a separate task manages keep-alives.
+
+---
+
+## MQTT_GetPacketId
+
+```c
+uint16_t MQTT_GetPacketId( MQTTContext_t *pContext );
+```
+
+Returns the next available packet identifier (1–65535, wrapping). Use for QoS 1/2 PUBLISH, SUBSCRIBE, and UNSUBSCRIBE.
+
+---
+
+## Return codes
+
+| Code | Meaning |
+|------|---------|
+| `MQTTSuccess` | Operation succeeded |
+| `MQTTBadParameter` | NULL pointer or invalid argument |
+| `MQTTNoMemory` | Network buffer too small |
+| `MQTTSendFailed` | Transport send returned an error |
+| `MQTTRecvFailed` | Transport receive returned an error |
+| `MQTTBadResponse` | Malformed packet received |
+| `MQTTServerRefused` | CONNACK returned a non-zero return code |
+| `MQTTKeepAliveTimeout` | No PINGRESP received within keep-alive interval |

@@ -1,0 +1,63 @@
+---
+title: "Introduction"
+description: "FreeRTOS is a real-time operating system kernel for microcontrollers and small microprocessors, distributed under the MIT license."
+---
+
+FreeRTOS is the world's leading real-time operating system (RTOS) for microcontrollers and small microprocessors. It is professionally developed, strictly quality controlled, robust, and free to embed in commercial products without any requirement to expose proprietary source code.
+
+## What is FreeRTOS?
+
+FreeRTOS provides the core primitives every embedded application needs:
+
+- **Task scheduling** — preemptive, cooperative, or hybrid
+- **Inter-task communication** — queues, semaphores, mutexes, event groups, stream buffers
+- **Memory management** — five heap implementations from fully static to coalescing allocators
+- **Software timers** — one-shot and auto-reload timers running in timer daemon task
+- **MPU support** — memory protection unit integration for Cortex-M and ARM cores
+
+## The FreeRTOS distribution
+
+This repository is the classic FreeRTOS distribution. It contains the kernel as a Git submodule and a curated set of companion libraries:
+
+| Component | Version | Description |
+|-----------|---------|-------------|
+| FreeRTOS Kernel | V10.5.1 | Core RTOS kernel |
+| FreeRTOS+TCP | V3.1.0 | Full TCP/IP networking stack |
+| coreMQTT | v2.1.1 | MQTT 3.1.1 client |
+| coreHTTP | latest | HTTP/1.1 client |
+| coreJSON | v3.2.0 | JSON parser |
+| corePKCS11 | v3.5.0 | PKCS#11 cryptography interface |
+| coreSNTP | v1.2.0 | SNTP time synchronization |
+| AWS IoT OTA | v3.4.0 | Over-the-air firmware updates |
+| AWS IoT Device Shadow | v1.3.0 | Device state synchronization |
+| AWS IoT Jobs | v1.3.0 | Remote job execution |
+| AWS IoT Device Defender | v1.3.0 | Security monitoring |
+| FreeRTOS Cellular Interface | v1.3.0 | LTE-M/NB-IoT connectivity |
+| SigV4 | v1.2.0 | AWS Signature Version 4 |
+
+## Repository structure
+
+```
+FreeRTOS/
+├── FreeRTOS/
+│   ├── Source/          # Kernel source (Git submodule)
+│   ├── Demo/            # 200+ hardware demo projects
+│   └── Test/            # Kernel tests and CBMC proofs
+└── FreeRTOS-Plus/
+    ├── Source/          # TCP, CLI, MQTT, HTTP, PKCS11, AWS libraries
+    ├── Demo/            # FreeRTOS+ demo projects
+    └── ThirdParty/      # wolfSSL, mbedTLS, tinycbor
+```
+
+## Long-term support
+
+FreeRTOS publishes LTS releases on a regular cadence. The 202406-LTS release covers the Kernel, FreeRTOS+TCP, and all core libraries. LTS releases receive security patches and bug fixes for an extended period, making them suitable for production deployments.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get a task running in minutes
+  </Card>
+  <Card title="Kernel Concepts" icon="microchip" href="/kernel/tasks">
+    Understand tasks, scheduling, and IPC
+  </Card>
+</CardGroup>

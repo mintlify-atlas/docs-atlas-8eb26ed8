@@ -1,0 +1,163 @@
+---
+title: "Queue API"
+description: "API reference for FreeRTOS queues — thread-safe FIFO data passing between tasks and ISRs."
+---
+
+## xQueueCreate
+
+```c
+QueueHandle_t xQueueCreate(
+    UBaseType_t uxQueueLength,
+    UBaseType_t uxItemSize
+);
+```
+
+<ParamField path="uxQueueLength" type="UBaseType_t" required>
+  Maximum number of items the queue can hold at once.
+</ParamField>
+<ParamField path="uxItemSize" type="UBaseType_t" required>
+  Size in bytes of each item. Items are copied by value.
+</ParamField>
+
+Returns a `QueueHandle_t`, or NULL if allocation fails.
+
+---
+
+## xQueueCreateStatic
+
+```c
+QueueHandle_t xQueueCreateStatic(
+    UBaseType_t    uxQueueLength,
+    UBaseType_t    uxItemSize,
+    uint8_t *      pucQueueStorage,
+    StaticQueue_t *pxStaticQueue
+);
+```
+
+<ParamField path="pucQueueStorage" type="uint8_t *" required>
+  Caller-provided storage buffer of size `uxQueueLength * uxItemSize` bytes.
+</ParamField>
+<ParamField path="pxStaticQueue" type="StaticQueue_t *" required>
+  Caller-provided `StaticQueue_t` structure.
+</ParamField>
+
+---
+
+## xQueueSend / xQueueSendToBack
+
+```c
+BaseType_t xQueueSend(
+    QueueHandle_t xQueue,
+    const void *  pvItemToQueue,
+    TickType_t    xTicksToWait
+);
+```
+
+Copies `pvItemToQueue` to the back of the queue. Blocks up to `xTicksToWait` ticks if the queue is full. Use `portMAX_DELAY` to block indefinitely.
+
+Returns `pdPASS` on success, `errQUEUE_FULL` if the timeout expires.
+
+---
+
+## xQueueSendToFront
+
+```c
+BaseType_t xQueueSendToFront(
+    QueueHandle_t xQueue,
+    const void *  pvItemToQueue,
+    TickType_t    xTicksToWait
+);
+```
+
+Sends to the front of the queue (highest priority position).
+
+---
+
+## xQueueReceive
+
+```c
+BaseType_t xQueueReceive(
+    QueueHandle_t xQueue,
+    void *        pvBuffer,
+    TickType_t    xTicksToWait
+);
+```
+
+Copies the front item into `pvBuffer` and removes it from the queue. Blocks up to `xTicksToWait` ticks if the queue is empty.
+
+Returns `pdPASS` on success, `pdFAIL` if the timeout expires.
+
+---
+
+## xQueuePeek
+
+```c
+BaseType_t xQueuePeek(
+    QueueHandle_t xQueue,
+    void *        pvBuffer,
+    TickType_t    xTicksToWait
+);
+```
+
+Reads the front item without removing it from the queue.
+
+---
+
+## ISR variants
+
+```c
+BaseType_t xQueueSendFromISR(
+    QueueHandle_t xQueue,
+    const void *  pvItemToQueue,
+    BaseType_t *  pxHigherPriorityTaskWoken
+);
+
+BaseType_t xQueueReceiveFromISR(
+    QueueHandle_t xQueue,
+    void *        pvBuffer,
+    BaseType_t *  pxHigherPriorityTaskWoken
+);
+```
+
+Set `*pxHigherPriorityTaskWoken = pdFALSE` before calling. If a higher-priority task was unblocked, `*pxHigherPriorityTaskWoken` is set to `pdTRUE` — pass this to `portYIELD_FROM_ISR` at the end of the ISR.
+
+```c
+void vExampleISR( void )
+{
+    BaseType_t xWoken = pdFALSE;
+    uint32_t ulValue = 42;
+    xQueueSendFromISR( xQueue, &ulValue, &xWoken );
+    portYIELD_FROM_ISR( xWoken );
+}
+```
+
+---
+
+## Queue state queries
+
+```c
+UBaseType_t uxQueueMessagesWaiting( QueueHandle_t xQueue );
+UBaseType_t uxQueueSpacesAvailable( QueueHandle_t xQueue );
+BaseType_t  xQueueIsQueueEmptyFromISR( QueueHandle_t xQueue );
+BaseType_t  xQueueIsQueueFullFromISR( QueueHandle_t xQueue );
+```
+
+---
+
+## xQueueReset
+
+```c
+BaseType_t xQueueReset( QueueHandle_t xQueue );
+```
+
+Empties the queue. Always returns `pdPASS`.
+
+---
+
+## vQueueDelete
+
+```c
+void vQueueDelete( QueueHandle_t xQueue );
+```
+
+Deletes the queue and frees heap memory (if dynamically allocated).

@@ -1,0 +1,151 @@
+---
+title: "AWS IoT Libraries"
+description: "Device Shadow, Defender, Jobs, OTA updates, Fleet Provisioning, and SigV4 for FreeRTOS devices."
+---
+
+The FreeRTOS distribution bundles a full suite of AWS IoT embedded SDKs. All libraries communicate via coreMQTT (and coreHTTP for OTA downloads).
+
+## Library versions (202411.00 release)
+
+| Library | Version | Source path |
+|---------|---------|-------------|
+| AWS IoT Device Shadow | v1.3.0 | `FreeRTOS-Plus/Source/AWS/device-shadow/` |
+| AWS IoT Device Defender | v1.3.0 | `FreeRTOS-Plus/Source/AWS/device-defender/` |
+| AWS IoT Jobs | v1.3.0 | `FreeRTOS-Plus/Source/AWS/jobs/` |
+| AWS IoT OTA | v3.4.0 | `FreeRTOS-Plus/Source/AWS/ota/` |
+| AWS IoT Fleet Provisioning | v1.1.0 | `FreeRTOS-Plus/Source/AWS/fleet-provisioning/` |
+| SigV4 | v1.2.0 | `FreeRTOS-Plus/Source/AWS/sigv4/` |
+
+## Device Shadow
+
+Device Shadow stores and retrieves the last-known reported and desired state of a device, even when it is offline.
+
+```c
+#include "shadow.h"
+
+char pcTopic[ SHADOW_TOPIC_LENGTH_MAX( THING_NAME_LENGTH ) ];
+uint16_t usTopicLen;
+
+/* Build the /update topic */
+Shadow_GetTopicString( SHADOW_TOPIC_STRING_TYPE_UPDATE,
+                       pcThingName, strlen( pcThingName ),
+                       pcTopic, sizeof( pcTopic ), &usTopicLen );
+
+/* Publish reported state via coreMQTT */
+const char *pcDoc = "{\"state\":{\"reported\":{\"temp\":23,\"online\":true}}}";
+
+MQTTPublishInfo_t xPub = {
+    .qos             = MQTTQoS1,
+    .pTopicName      = pcTopic,
+    .topicNameLength = usTopicLen,
+    .pPayload        = pcDoc,
+    .payloadLength   = strlen( pcDoc ),
+};
+MQTT_Publish( &xMQTT, &xPub, MQTT_GetPacketId( &xMQTT ) );
+```
+
+## Device Defender
+
+Device Defender reports security metrics (open TCP ports, established connections) to AWS for anomaly detection.
+
+```c
+#include "defender.h"
+
+char pcTopic[ DEFENDER_API_MAX_LENGTH( THING_NAME_LENGTH ) ];
+uint16_t usTopicLen;
+
+Defender_GetTopic( pcTopic, sizeof( pcTopic ),
+                   pcThingName, strlen( pcThingName ),
+                   DefenderTopic_ClientToDeviceJson,
+                   &usTopicLen );
+
+/* Build and publish a metrics report via coreMQTT */
+```
+
+## IoT Jobs
+
+IoT Jobs delivers remote commands — firmware updates, configuration changes — as job documents.
+
+```c
+#include "jobs.h"
+
+char pcTopic[ JOBS_API_MAX_LENGTH( THING_NAME_LENGTH ) ];
+uint16_t usTopicLen;
+
+/* Subscribe to pending jobs topic */
+Jobs_GetTopic( pcTopic, sizeof( pcTopic ),
+               pcThingName, strlen( pcThingName ),
+               JobsTopic_GetPendingSuccess, &usTopicLen );
+
+/* Subscribe via coreMQTT, then poll for job documents */
+```
+
+## Over-the-Air (OTA) Updates
+
+The OTA library manages firmware image download, signature verification, and activation.
+
+```c
+#include "ota.h"
+
+OtaInterfaces_t xOtaIf = {
+    .os   = { /* FreeRTOS wrappers */ },
+    .mqtt = { /* coreMQTT callbacks */ },
+    .http = { /* coreHTTP callbacks */ },
+    .pal  = { /* Flash write/verify */ },
+};
+
+OTA_Init( &xOtaBuf, &xOtaIf,
+          (const uint8_t *) pcThingName, prvOtaCallback );
+
+/* Run in a dedicated task */
+OTA_EventProcessingTask( NULL );
+```
+
+## Fleet Provisioning
+
+Automates certificate issuance and configuration during device manufacturing.
+
+```c
+#include "fleet_provisioning.h"
+
+char pcTopic[ FP_TOPICS_MAX_LENGTH ];
+uint16_t usTopicLen;
+
+FleetProvisioning_GetTopic(
+    pcTopic, sizeof( pcTopic ),
+    FleetProvisioningCborCreateCertFromCsrPublish,
+    &usTopicLen );
+
+/* Publish a CSR, receive a signed certificate from AWS */
+```
+
+## SigV4
+
+Signs AWS HTTP requests with AWS Signature Version 4 — used internally by the OTA HTTP downloader.
+
+```c
+#include "sigv4.h"
+
+SigV4Parameters_t xParams = {
+    .pCredentials     = &xCreds,
+    .pDateIso8601     = pcDate,
+    .pRegion          = "us-east-1",
+    .regionLen        = 9,
+    .pService         = "iotdevicegateway",
+    .serviceLen       = 16,
+    .pCryptoInterface = &xCrypto,
+    .pHttpParameters  = &xHttp,
+};
+
+char pcAuthBuf[ 512 ];
+size_t xAuthLen = sizeof( pcAuthBuf );
+const char *pcSig;
+size_t xSigLen;
+
+SigV4_GenerateHTTPAuthorization( &xParams, pcAuthBuf, &xAuthLen,
+                                  &pcSig, &xSigLen );
+```
+
+<Note>
+  Complete working examples for all AWS IoT libraries are in `FreeRTOS-Plus/Demo/AWS/`. The Windows Simulator demos let you run and test AWS connectivity without physical hardware.
+</Note>

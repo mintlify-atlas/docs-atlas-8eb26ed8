@@ -1,0 +1,133 @@
+---
+title: "coreHTTP"
+description: "Lightweight HTTP/1.1 client library for FreeRTOS embedded devices."
+---
+
+coreHTTP is a minimal HTTP/1.1 client for microcontrollers. It is transport-agnostic — connect it to plaintext TCP or TLS, then send requests and parse responses.
+
+## Source location
+
+```
+FreeRTOS-Plus/Source/Application-Protocols/coreHTTP/
+```
+
+## GET request
+
+```c
+#include "core_http_client.h"
+#include "transport_plaintext.h"
+
+static uint8_t ucReqBuf[ 512 ];
+static uint8_t ucResBuf[ 2048 ];
+
+void vHTTPGet( void )
+{
+    static NetworkContext_t xNetworkContext;
+    static PlaintextTransportParams_t xPlaintextParams;
+    TransportInterface_t xTransport = { 0 };
+
+    /* Connect — timeouts are in milliseconds */
+    xNetworkContext.pParams = &xPlaintextParams;
+    Plaintext_FreeRTOS_Connect( &xNetworkContext, "api.example.com", 80,
+                                5000, 5000 );
+    xTransport.pNetworkContext = &xNetworkContext;
+    xTransport.send            = Plaintext_FreeRTOS_send;
+    xTransport.recv            = Plaintext_FreeRTOS_recv;
+
+    HTTPRequestInfo_t xReqInfo = {
+        .pMethod    = HTTP_METHOD_GET,
+        .methodLen  = HTTP_METHOD_GET_LEN,
+        .pPath      = "/data",
+        .pathLen    = 5,
+        .pHost      = "api.example.com",
+        .hostLen    = 15,
+        .reqFlags   = 0,
+    };
+
+    HTTPRequestHeaders_t xHeaders;
+    HTTPClient_InitializeRequestHeaders_t xInitParams = {
+        .pBuffer   = ucReqBuf,
+        .bufferLen = sizeof( ucReqBuf ),
+        .pRequestInfo = &xReqInfo,
+    };
+    HTTPClient_InitializeRequestHeaders( &xHeaders, &xInitParams );
+
+    HTTPResponse_t xResponse = {
+        .pBuffer   = ucResBuf,
+        .bufferLen = sizeof( ucResBuf ),
+    };
+
+    HTTPStatus_t xStatus = HTTPClient_Send( &xTransport, &xHeaders,
+                                            NULL, 0, &xResponse, 0 );
+
+    if( xStatus == HTTPSuccess )
+    {
+        /* xResponse.statusCode  — e.g. 200       */
+        /* xResponse.pBody       — response body  */
+        /* xResponse.bodyLen     — body length    */
+    }
+}
+```
+
+## POST request with JSON body
+
+```c
+const char *pcBody = "{\"value\":42}";
+
+HTTPClient_InitializeRequestHeaders( &xHeaders, &xInitParams );
+HTTPClient_AddHeader( &xHeaders,
+                      "Content-Type", strlen( "Content-Type" ),
+                      "application/json", strlen( "application/json" ) );
+
+HTTPClient_Send( &xTransport, &xHeaders,
+                 (const uint8_t *) pcBody, strlen( pcBody ),
+                 &xResponse, 0 );
+```
+
+## Reading a response header
+
+```c
+const char *pcValue;
+size_t xValueLen;
+
+HTTPClient_ReadHeader( &xResponse,
+                       "Content-Type", strlen( "Content-Type" ),
+                       &pcValue, &xValueLen );
+```
+
+## HTTPS with TLS
+
+```c
+#include "transport_mbedtls.h"
+
+static NetworkContext_t xNetworkContext;
+static TlsTransportParams_t xTlsParams;
+
+NetworkCredentials_t xCreds = {
+    .pRootCa    = (const uint8_t *) pcRootCA,
+    .rootCaSize = sizeof( pcRootCA ),
+};
+
+xNetworkContext.pParams = &xTlsParams;
+/* Timeouts are in milliseconds */
+TLS_FreeRTOS_Connect( &xNetworkContext, "api.example.com", 443,
+                      &xCreds, 5000, 5000 );
+xTransport.pNetworkContext = &xNetworkContext;
+xTransport.send            = TLS_FreeRTOS_send;
+xTransport.recv            = TLS_FreeRTOS_recv;
+```
+
+## Return codes
+
+| Code | Meaning |
+|------|---------|
+| `HTTPSuccess` | Request sent and response received |
+| `HTTPInvalidParameter` | NULL pointer or zero-length buffer |
+| `HTTPNetworkError` | Transport send/receive failed |
+| `HTTPPartialResponse` | Response truncated — increase buffer size |
+| `HTTPNoResponse` | Server closed connection with no response |
+| `HTTPInsufficientMemory` | Header buffer too small |
+
+<Tip>
+  If you receive `HTTPInsufficientMemory`, increase the size of `ucReqBuf`. If you receive `HTTPPartialResponse`, increase `ucResBuf`.
+</Tip>

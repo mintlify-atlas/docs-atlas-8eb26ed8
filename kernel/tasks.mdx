@@ -1,0 +1,152 @@
+---
+title: "Tasks"
+description: "FreeRTOS tasks are independent threads of execution, each with its own stack and priority."
+---
+
+In FreeRTOS, every discrete piece of work runs as a **task**. Tasks are analogous to threads — they have their own stack, run independently, and are scheduled by the kernel.
+
+## Task function prototype
+
+Every task is implemented as a C function that never returns:
+
+```c
+void vMyTask( void *pvParameters )
+{
+    /* Initialization code here (runs once) */
+
+    for( ;; )
+    {
+        /* Task body — repeated forever */
+        vTaskDelay( pdMS_TO_TICKS( 100 ) );
+    }
+
+    /* Tasks must not return — add vTaskDelete if needed */
+    vTaskDelete( NULL );
+}
+```
+
+## Creating tasks
+
+### Dynamic allocation (heap_1 through heap_5)
+
+```c
+BaseType_t xTaskCreate(
+    TaskFunction_t    pvTaskCode,        /* Task function */
+    const char *      pcName,            /* Name for debugging */
+    configSTACK_DEPTH_TYPE usStackDepth, /* Stack in words, not bytes */
+    void *            pvParameters,      /* Passed to pvTaskCode */
+    UBaseType_t       uxPriority,        /* 0 = lowest */
+    TaskHandle_t *    pxCreatedTask      /* Handle out, or NULL */
+);
+```
+
+Returns `pdPASS` on success, `errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY` on failure.
+
+### Static allocation (no heap required)
+
+```c
+TaskHandle_t xTaskCreateStatic(
+    TaskFunction_t    pvTaskCode,
+    const char *      pcName,
+    uint32_t          ulStackDepth,      /* Stack depth in words */
+    void *            pvParameters,
+    UBaseType_t       uxPriority,
+    StackType_t *     puxStackBuffer,    /* Caller-provided stack */
+    StaticTask_t *    pxTaskBuffer       /* Caller-provided TCB */
+);
+```
+
+Requires `configSUPPORT_STATIC_ALLOCATION 1` in `FreeRTOSConfig.h`.
+
+### Example: two tasks at different priorities
+
+```c
+#include "FreeRTOS.h"
+#include "task.h"
+
+static void vHighPriorityTask( void *pvParameters )
+{
+    for( ;; )
+    {
+        /* High priority work */
+        vTaskDelay( pdMS_TO_TICKS( 10 ) );
+    }
+}
+
+static void vLowPriorityTask( void *pvParameters )
+{
+    for( ;; )
+    {
+        /* Low priority work runs in idle time */
+        vTaskDelay( pdMS_TO_TICKS( 500 ) );
+    }
+}
+
+int main( void )
+{
+    xTaskCreate( vHighPriorityTask, "High", 128, NULL, 2, NULL );
+    xTaskCreate( vLowPriorityTask,  "Low",  128, NULL, 1, NULL );
+    vTaskStartScheduler();
+    for( ;; );
+}
+```
+
+## Task states
+
+A task is always in one of four states:
+
+| State | Description |
+|-------|-------------|
+| **Running** | Currently executing on the CPU |
+| **Ready** | Ready to run, waiting for CPU time |
+| **Blocked** | Waiting for an event (delay, queue, semaphore) |
+| **Suspended** | Explicitly suspended; not scheduled |
+
+Transitions: Running → Blocked (on delay/queue), Blocked → Ready (event occurred), Running → Suspended (`vTaskSuspend`), Suspended → Ready (`vTaskResume`).
+
+## Task priorities
+
+- Range: `0` (lowest, idle) to `configMAX_PRIORITIES - 1` (highest)
+- The highest-priority Ready task always runs
+- Equal-priority tasks share CPU time if `configUSE_TIME_SLICING` is enabled
+- `tskIDLE_PRIORITY` (0) is reserved for the idle task
+
+## Task management API
+
+```c
+/* Suspend and resume */
+void vTaskSuspend( TaskHandle_t xTaskToSuspend );   /* NULL = calling task */
+void vTaskResume( TaskHandle_t xTaskToResume );
+
+/* Delete a task */
+void vTaskDelete( TaskHandle_t xTaskToDelete );     /* NULL = calling task */
+
+/* Get information */
+UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask );
+eTaskState  eTaskGetState( TaskHandle_t xTask );
+UBaseType_t uxTaskPriorityGet( TaskHandle_t xTask );
+void        vTaskPrioritySet( TaskHandle_t xTask, UBaseType_t uxNewPriority );
+```
+
+## Idle task and idle hook
+
+The idle task runs at priority 0 when no application task is ready. You can add a hook:
+
+```c
+/* In FreeRTOSConfig.h */
+#define configUSE_IDLE_HOOK  1
+
+/* Implement in your application */
+void vApplicationIdleHook( void )
+{
+    /* Enter low-power sleep mode */
+}
+```
+
+<Warning>
+  The idle hook must never block or call any API that could cause blocking.
+</Warning>
+
+<Tip>
+  Use `uxTaskGetStackHighWaterMark()` during development to tune stack sizes — if the high water mark is near zero, increase the stack depth.
+</Tip>

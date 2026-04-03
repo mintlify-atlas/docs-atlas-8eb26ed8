@@ -1,0 +1,132 @@
+---
+title: "FreeRTOS+CLI"
+description: "Extensible command-line interface library for FreeRTOS embedded applications."
+---
+
+FreeRTOS+CLI provides a simple framework for adding a serial command-line interface to your embedded application. Commands are registered at startup and dispatched by the interpreter when received over UART or any other character stream.
+
+## Source files
+
+```
+FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI/FreeRTOS_CLI.c
+FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI/FreeRTOS_CLI.h
+```
+
+## Registering a command
+
+Each command is described by a `CLI_Command_Definition_t` struct and registered with `FreeRTOS_CLIRegisterCommand()`:
+
+```c
+#include "FreeRTOS_CLI.h"
+
+static BaseType_t prvVersionCommand( char *pcWriteBuffer,
+                                     size_t xWriteBufferLen,
+                                     const char *pcCommandString )
+{
+    snprintf( pcWriteBuffer, xWriteBufferLen, "FreeRTOS v10.5.1\r\n" );
+    return pdFALSE;  /* pdFALSE = done, no more output */
+}
+
+static const CLI_Command_Definition_t xVersionCmd =
+{
+    "version",
+    "version: Print firmware version\r\n",
+    prvVersionCommand,
+    0  /* no parameters */
+};
+
+/* Call at startup */
+FreeRTOS_CLIRegisterCommand( &xVersionCmd );
+```
+
+## Command with parameters
+
+Use `FreeRTOS_CLIGetParameter()` to extract parameters by 1-based index:
+
+```c
+static BaseType_t prvEchoCommand( char *pcWriteBuffer,
+                                  size_t xWriteBufferLen,
+                                  const char *pcCommandString )
+{
+    BaseType_t xParamLen;
+    const char *pcParam = FreeRTOS_CLIGetParameter( pcCommandString, 1, &xParamLen );
+
+    snprintf( pcWriteBuffer, xWriteBufferLen, "%.*s\r\n",
+              ( int ) xParamLen, pcParam );
+    return pdFALSE;
+}
+
+static const CLI_Command_Definition_t xEchoCmd =
+{
+    "echo",
+    "echo <text>: Echo text to console\r\n",
+    prvEchoCommand,
+    1  /* expects 1 parameter */
+};
+```
+
+## Console task
+
+Connect `FreeRTOS_CLIProcessCommand()` to a UART receive loop:
+
+```c
+#define INPUT_LEN   64
+#define OUTPUT_LEN  256
+
+static void vCLITask( void *pvParameters )
+{
+    char pcInput[ INPUT_LEN ] = { 0 };
+    char pcOutput[ OUTPUT_LEN ];
+    uint8_t ucIdx = 0;
+
+    for( ;; )
+    {
+        char c = cReadUART();  /* blocking UART read */
+
+        if( c == '\r' || c == '\n' )
+        {
+            pcInput[ ucIdx ] = '\0';
+            BaseType_t xMore;
+            do {
+                xMore = FreeRTOS_CLIProcessCommand( pcInput, pcOutput, OUTPUT_LEN );
+                vWriteUART( pcOutput );
+            } while( xMore != pdFALSE );
+
+            memset( pcInput, 0, INPUT_LEN );
+            ucIdx = 0;
+        }
+        else if( ucIdx < INPUT_LEN - 1 )
+        {
+            pcInput[ ucIdx++ ] = c;
+        }
+    }
+}
+```
+
+## Multi-line output
+
+Return `pdTRUE` to signal more output is pending; the console calls the command again:
+
+```c
+static BaseType_t prvListCmd( char *pcWriteBuffer, size_t xLen,
+                               const char *pcCmd )
+{
+    static UBaseType_t uxLine = 0;
+    static const char * const pcItems[] = { "item1\r\n", "item2\r\n", "item3\r\n" };
+    static const UBaseType_t uxCount = 3;
+
+    snprintf( pcWriteBuffer, xLen, "%s", pcItems[ uxLine++ ] );
+
+    if( uxLine >= uxCount ) { uxLine = 0; return pdFALSE; }
+    return pdTRUE;
+}
+```
+
+## API summary
+
+| Function | Description |
+|----------|-------------|
+| `FreeRTOS_CLIRegisterCommand()` | Register a command definition |
+| `FreeRTOS_CLIProcessCommand()` | Process a command string, write output |
+| `FreeRTOS_CLIGetParameter()` | Get parameter N from the command string |
+| `FreeRTOS_CLIGetOutputBuffer()` | Get pointer to the shared output buffer |
